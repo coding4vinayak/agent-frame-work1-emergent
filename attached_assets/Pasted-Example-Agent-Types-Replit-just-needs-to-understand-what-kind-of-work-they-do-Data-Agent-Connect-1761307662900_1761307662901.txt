@@ -1,0 +1,95 @@
+Example Agent Types (Replit just needs to understand what kind of work they do)
+
+Data Agent
+
+Connects to external APIs or databases
+
+Cleans, transforms, or analyzes structured/unstructured data
+
+Stores embeddings or results in a vector database (e.g. Qdrant, Pinecone, or PGVector)
+
+Automation Agent
+
+Executes scheduled or triggered workflows
+
+Calls APIs, sends emails, or automates repetitive backend tasks
+
+Logs results and resource usage metrics
+
+Insight Agent
+
+Summarizes reports or generates insights from text/data
+
+Uses an LLM only when needed (lightweight call)
+
+Outputs results to dashboards
+
+Monitoring Agent
+
+Monitors API performance, user usage, and system metrics
+
+Sends alerts or reports to admin panel
+
+🔹 How the System Will Work
+
+Frontend (React or Next.js built on Replit)
+
+Clean, modular UI (no CRM look)
+
+Includes:
+
+Login / Org setup
+
+Admin Dashboard (manage users, metrics, usage, and attached agents)
+
+Placeholder section: “Agent Board” — where each agent has a visual card/block
+
+Backend (FastAPI or Flask + Postgres)
+
+Multi-tenant structure (each organization has isolated data)
+
+Role-based Access Control (Super Admin, Org Admin, User)
+
+Metrics tracking (API calls, agent usage, compute time)
+
+Integration-ready endpoints for vector DBs
+
+Modular system to register and invoke new AI agents later
+
+Database (Postgres)
+
+Tables for users, organizations, roles, usage_metrics, agent_registry
+
+Agent metadata: type, API endpoints, resource consumption, etc.
+
+Vector Database (future integration)
+
+Used only by AI agents that need semantic search or embedding lookups
+
+Stored separately from main Postgres tables
+
+Backend should provide a clean connector (example: pgvector or Qdrant API)
+
+Testing / QA Setup
+
+Automated tests for API endpoints
+
+Load tests for multi-tenancy
+
+Mock data for simulating agents
+
+💡 Key Design Directives for Replit
+
+✅ Use React + Tailwind or Next.js + ShadCN for a modern clean UI
+
+✅ Use FastAPI + Postgres backend
+
+✅ Prepare hooks / endpoints / tables for future AI agent integration
+
+✅ Include admin, super admin, user roles
+
+✅ Include organization-level multi-tenancy
+
+✅ Keep UI minimal, modular, and non-CRM-like
+
+✅ Include testing files and API documentation
