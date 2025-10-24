@@ -22,13 +22,12 @@ export default function Signup() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
-  const form = useForm<SignupData>({
-    resolver: zodResolver(signupSchema),
+  const form = useForm<Omit<SignupData, 'organizationName'>>({
+    resolver: zodResolver(signupSchema.omit({ organizationName: true })),
     defaultValues: {
       name: "",
       email: "",
       password: "",
-      organizationName: "",
     },
   });
 
