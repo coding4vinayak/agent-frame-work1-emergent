@@ -1,0 +1,125 @@
+Build a modern, production-ready **multi-tenant CRM & sales automation core system** for Abetworks. The system should include frontend, backend, database, testing structure, and multi-user role management. Do not build any AI agent modules yet, just prepare placeholders where agents will be plugged in later. Ensure everything is modular, scalable, and clean.
+
+---
+
+### **Tech Stack**
+- **Frontend:** React (latest version) + Tailwind CSS for styling. Keep UI modern, clean, minimal, professional, but note Replit may have limitations in advanced UI/UX design. Components should be reusable.
+- **Backend:** Python 3 + FastAPI
+- **Database:** PostgreSQL (multi-tenant design from the start)
+- **Testing:** pytest + httpx (API-level testing)
+- **Optional:** Dockerfile for containerized development (if feasible)
+
+---
+
+### **Frontend Requirements**
+1. **Login / Signup / Password Reset**
+   - Email/password login
+   - Password reset workflow
+   - Admin can invite new users to organization
+2. **Dashboard**
+   - Sidebar: Dashboard, Users, Tasks, Reports, Settings, Agents (placeholder)
+   - Top bar: profile, notifications
+   - Overview cards: Active Users, Tasks Done, Leads Generated
+3. **Users & Roles**
+   - Admin panel to add/remove users
+   - Assign roles: Member, Admin, Super Admin
+   - View user activity
+4. **Tasks Page**
+   - Table with tasks: description, status, created date, user
+   - Filters: Pending, Running, Completed, Failed
+5. **Reports / Metrics**
+   - Aggregate task metrics per user, per org
+   - Bar/line charts (use simple chart library)
+   - Cards showing resource usage
+6. **Settings**
+   - Organization info: name, logo
+   - API key management
+   - Integration management (Google, Email, WhatsApp placeholders)
+7. **Agents Page (Placeholder)**
+   - Display list of agents (name, type, status, description)
+   - Buttons: View, Run, Settings (no real agent functionality yet)
+   - Container ready for future agent-specific UI modules
+8. **Responsive**
+   - Desktop and tablet ready
+   - Minimal but professional design
+
+---
+
+### **Backend Requirements**
+1. **Authentication & Roles**
+   - JWT-based login
+   - Role-based access control: Member, Admin, Super Admin
+   - Enforce permissions for endpoints
+2. **Multi-Tenant Design**
+   - Each organization isolated by `org_id`
+   - Users belong to organizations
+   - Admins only see data for their org
+   - Super Admin can see all orgs
+3. **Database Tables**
+   - Users: id, name, email, password_hash, role, org_id, last_login
+   - Organizations: id, name, logo, plan, API keys
+   - Agents: id, name, type, description, status, org_id (placeholder for future modules)
+   - Tasks: id, agent_id, description, status, created_at, user_id, org_id, result
+   - Logs: id, agent_id, user_id, org_id, timestamp, message, response
+   - Integrations: id, org_id, type, api_key, status
+   - ResourceUsage: id, org_id, user_id, api_calls, tasks_run, storage_used, timestamp
+4. **API Endpoints**
+   - Auth: /login, /signup, /password-reset
+   - Users: CRUD endpoints
+   - Organizations: CRUD endpoints
+   - Tasks: list, filter, create, update status
+   - Logs: list per agent/user/org
+   - Metrics: aggregate tasks per user/org
+   - Agents: list, placeholder run endpoint
+   - Integrations: add/remove, list
+5. **Backend Structure**
+   - Modular Python files for routes, models, schemas, services
+   - Clear separation: auth, users, orgs, tasks, metrics, agents
+   - Use SQLAlchemy or equivalent for Postgres ORM
+   - Enforce multi-tenant queries (`org_id`) on every endpoint
+
+---
+
+### **Testing Structure**
+1. **API Tests (pytest + httpx)**
+   - Authentication: login success/failure, role-based access
+   - User CRUD: create, read, update, delete
+   - Organization CRUD: create, update, delete
+   - Task APIs: create, list, filter by status
+   - Logs API: return last 10 logs per agent/user/org
+   - Metrics API: verify aggregation accuracy
+   - Multi-tenant isolation: users cannot access other orgs
+2. **Mock External Integrations**
+   - Google API, Email API, WhatsApp (return fake responses for tests)
+3. **Structure**
+   - Each module has its own test file (test_auth.py, test_users.py, test_tasks.py, test_metrics.py)
+
+---
+
+### **UI/UX Notes**
+- Modern, clean, minimal design
+- Rounded corners, soft shadows
+- Blue accent color for buttons/cards
+- Loading states for API calls
+- Sidebar icons and active states
+- Reusable components (cards, tables, charts)
+- Professional dashboard feel, like Notion or Linear
+
+---
+
+### **Agents Placeholder**
+- Keep agents fully separate
+- Backend exposes `/agents/run` and `/agents/list` as placeholders
+- Frontend container ready to display agent-specific UI later
+- No AI or agent logic implemented now
+
+---
+
+### **Goal**
+- **Fully functional core system** for multi-tenant organizations
+- Admin + Super Admin + Member roles
+- Task tracking, metrics, logs
+- API-ready frontend + backend
+- Testing structure in place
+- Modular architecture for future agent integration
+- Production-ready Postgres database setup
