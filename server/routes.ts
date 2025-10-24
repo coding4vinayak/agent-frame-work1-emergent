@@ -49,30 +49,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Signup (creates new organization with first admin user)
+  // Signup - First user becomes super admin, additional users disabled
   app.post("/api/auth/signup", async (req, res) => {
     try {
-      const { name, email, password, organizationName } = signupSchema.parse(req.body);
+      const { name, email, password } = req.body;
+
+      // Check if any user already exists
+      const allUsers = await storage.getAllUsersGlobal();
+      if (allUsers.length > 0) {
+        return res.status(403).json({ 
+          message: "Signup disabled. System already has a super admin. Contact the administrator to get invited." 
+        });
+      }
 
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({ message: "Email already registered" });
       }
 
-      // Create organization first
+      // Create single default organization for the system
       const organization = await storage.createOrganization({
-        name: organizationName,
-        plan: "free",
+        name: "Abetworks System",
+        plan: "enterprise",
       });
 
-      // Hash password and create FIRST user as admin
-      // This is the ONLY admin for this new organization
+      // Hash password and create FIRST and ONLY super admin
       const hashedPassword = await bcrypt.hash(password, 10);
       const user = await storage.createUser({
         name,
         email,
         password: hashedPassword,
-        role: "admin", // First user is admin of the new org
+        role: "super_admin", // First user is THE super admin
         orgId: organization.id,
       });
 
@@ -80,7 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         token, 
         user: { ...user, password: undefined },
-        message: "Organization created successfully. You are the admin."
+        message: "Super Admin account created successfully. You control the entire system."
       });
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Signup failed" });
@@ -102,27 +109,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== User Routes =====
 
-  // Get all users in organization
-  app.get("/api/users", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+  // Get all users in system (super admin sees everyone)
+  app.get("/api/users", requireAuth, async (req: AuthRequest, res) => {
     try {
-      const users = await storage.getAllUsers(req.user!.orgId);
+      const users = await storage.getAllUsersGlobal();
       res.json(users.map((u) => ({ ...u, password: undefined })));
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to fetch users" });
     }
   });
 
-  // Invite user (admin only)
-  app.post("/api/users/invite", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+  // Invite user (super admin only)
+  app.post("/api/users/invite", requireAuth, requireRole("super_admin"), async (req: AuthRequest, res) => {
     try {
       const { name, email, role } = req.body;
       
+      // Get the system's organization
+      const systemOrg = await storage.getOrganization(req.user!.orgId);
+      if (!systemOrg) {
+        return res.status(500).json({ message: "System organization not found" });
+      }
+      
       // Validate role
-      const validRoles = ["member", "admin", "super_admin"];
+      const validRoles = ["member", "admin"];
       const userRole = role || "member";
       
       if (!validRoles.includes(userRole)) {
-        return res.status(400).json({ message: "Invalid role specified" });
+        return res.status(400).json({ message: "Invalid role. Only 'member' or 'admin' allowed." });
       }
       
       const existingUser = await storage.getUserByEmail(email);
@@ -138,15 +151,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name,
         email,
         password: hashedPassword,
-        role: userRole, // Use validated role
-        orgId: req.user!.orgId,
+        role: userRole,
+        orgId: systemOrg.id, // All users in same org
       });
 
       // In production, send invitation email with temp password
       res.json({ 
         user: { ...user, password: undefined },
         tempPassword, // Return this in dev only - remove in production
-        message: `User invited as ${userRole}`
+        message: `User invited as ${userRole}. Email: ${email}, Temp Password: ${tempPassword}`
       });
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Failed to invite user" });

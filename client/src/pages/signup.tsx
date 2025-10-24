@@ -73,9 +73,9 @@ export default function Signup() {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-md bg-primary mb-4">
             <span className="text-primary-foreground font-bold text-xl">A</span>
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight mb-2">Get started</h1>
+          <h1 className="text-3xl font-semibold tracking-tight mb-2">Super Admin Setup</h1>
           <p className="text-sm text-muted-foreground">
-            Create your Abetworks account
+            Create the master admin account (one-time only)
           </p>
         </div>
 
@@ -112,25 +112,6 @@ export default function Signup() {
                       type="email"
                       autoComplete="email"
                       data-testid="input-email"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="organizationName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Organization Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Your Company"
-                      autoComplete="organization"
-                      data-testid="input-organization"
                       {...field}
                     />
                   </FormControl>
