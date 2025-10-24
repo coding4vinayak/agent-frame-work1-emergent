@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -15,9 +16,9 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Shield } from "lucide-react";
 
-export default function Login() {
+export default function AdminLogin() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +34,7 @@ export default function Login() {
   const onSubmit = async (data: LoginData) => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch("/api/auth/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -41,23 +42,23 @@ export default function Login() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Login failed");
+        throw new Error(error.message || "Admin login failed");
       }
 
       const result = await response.json();
       localStorage.setItem("token", result.token);
       
       toast({
-        title: "Welcome back!",
-        description: "You have successfully logged in.",
+        title: result.message || "Welcome back, Admin!",
+        description: "You have successfully logged in as administrator.",
       });
 
       setLocation("/");
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Login failed",
-        description: error.message || "Invalid email or password",
+        title: "Admin login failed",
+        description: error.message || "Invalid credentials or insufficient privileges",
       });
     } finally {
       setIsLoading(false);
@@ -69,11 +70,11 @@ export default function Login() {
       <Card className="w-full max-w-md p-8">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-md bg-primary mb-4">
-            <span className="text-primary-foreground font-bold text-xl">A</span>
+            <Shield className="h-6 w-6 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight mb-2">Welcome back</h1>
+          <h1 className="text-3xl font-semibold tracking-tight mb-2">Admin Portal</h1>
           <p className="text-sm text-muted-foreground">
-            Sign in to your Abetworks account
+            Sign in with your administrator account
           </p>
         </div>
 
@@ -84,13 +85,13 @@ export default function Login() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Admin Email</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="you@example.com"
+                      placeholder="admin@abetworks.com"
                       type="email"
                       autoComplete="email"
-                      data-testid="input-email"
+                      data-testid="input-admin-email"
                       {...field}
                     />
                   </FormControl>
@@ -104,13 +105,13 @@ export default function Login() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>Admin Password</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Enter your password"
+                      placeholder="Enter your admin password"
                       type="password"
                       autoComplete="current-password"
-                      data-testid="input-password"
+                      data-testid="input-admin-password"
                       {...field}
                     />
                   </FormControl>
@@ -123,38 +124,28 @@ export default function Login() {
               type="submit"
               className="w-full"
               disabled={isLoading}
-              data-testid="button-login"
+              data-testid="button-admin-login"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  Authenticating...
                 </>
               ) : (
-                "Sign in"
+                <>
+                  <Shield className="mr-2 h-4 w-4" />
+                  Admin Sign In
+                </>
               )}
             </Button>
           </form>
         </Form>
 
         <div className="mt-6 text-center space-y-2">
-          <a
-            href="/reset-password"
-            className="text-sm text-primary hover:underline block"
-            data-testid="link-reset-password"
-          >
-            Forgot your password?
-          </a>
           <p className="text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <a href="/signup" className="text-primary hover:underline" data-testid="link-signup">
-              Sign up
-            </a>
-          </p>
-          <p className="text-sm text-muted-foreground pt-2 border-t">
-            Administrator?{" "}
-            <a href="/admin/login" className="text-primary hover:underline font-medium" data-testid="link-admin-login">
-              Admin Portal
+            Regular user?{" "}
+            <a href="/login" className="text-primary hover:underline" data-testid="link-user-login">
+              Sign in here
             </a>
           </p>
         </div>

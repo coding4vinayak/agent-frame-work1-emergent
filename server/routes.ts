@@ -25,7 +25,7 @@ import { PythonAgentClient } from "./python-agent-client";
 export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Authentication Routes =====
 
-  // Login
+  // Regular Login
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { email, password } = loginSchema.parse(req.body);
@@ -46,6 +46,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ token, user: { ...user, password: undefined } });
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Login failed" });
+    }
+  });
+
+  // Admin Login (Super Admin and Admin only)
+  app.post("/api/auth/admin/login", async (req, res) => {
+    try {
+      const { email, password } = loginSchema.parse(req.body);
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid admin credentials" });
+      }
+
+      // Check if user is admin or super_admin
+      if (user.role !== "admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid admin credentials" });
+      }
+
+      await storage.updateUserLastLogin(user.id);
+
+      const token = generateToken(user);
+      res.json({ 
+        token, 
+        user: { ...user, password: undefined },
+        message: `Welcome back, ${user.role === "super_admin" ? "Super Admin" : "Admin"}`
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Admin login failed" });
     }
   });
 

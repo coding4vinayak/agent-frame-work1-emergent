@@ -10,6 +10,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
 import ResetPassword from "@/pages/reset-password";
+// Import AdminLogin page
+import AdminLogin from "@/pages/admin-login";
 
 // Dashboard Pages
 import Dashboard from "@/pages/dashboard";
@@ -56,6 +58,12 @@ function Router() {
       <Route path="/login">
         <AuthLayout>
           <Login />
+        </AuthLayout>
+      </Route>
+      {/* Admin Login Route */}
+      <Route path="/admin/login">
+        <AuthLayout>
+          <AdminLogin />
         </AuthLayout>
       </Route>
       <Route path="/signup">
