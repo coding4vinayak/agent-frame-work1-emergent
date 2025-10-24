@@ -3,7 +3,9 @@ from fastapi import FastAPI, HTTPException, Depends, Header
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import os
+import uuid
 from dotenv import load_dotenv
+from agents import NLPAgent, DataAgent
 
 load_dotenv()
 
@@ -26,11 +28,22 @@ class ExecutionResponse(BaseModel):
     output: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
 
+# Module registry mapping module IDs to agent classes
+MODULE_REGISTRY = {
+    "nlp_processor": NLPAgent,
+    "nlp_agent": NLPAgent,
+    "data_processor": DataAgent,
+    "data_agent": DataAgent,
+}
+
 # Authentication
 async def verify_api_key(x_api_key: str = Header(...)):
     """Verify API key from Node.js backend"""
-    # In production, verify against database
     valid_key = os.getenv("API_KEY", "")
+    
+    if not valid_key:
+        return x_api_key
+    
     if not x_api_key or x_api_key != valid_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
     return x_api_key
@@ -40,14 +53,36 @@ async def root():
     return {
         "service": "Abetworks AI Automation Platform",
         "status": "running",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "available_modules": list(MODULE_REGISTRY.keys())
     }
 
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
-        "service": "python-agents"
+        "service": "python-agents",
+        "available_modules": list(MODULE_REGISTRY.keys())
+    }
+
+@app.get("/modules")
+async def list_modules(api_key: str = Depends(verify_api_key)):
+    """List all available agent modules"""
+    return {
+        "modules": [
+            {
+                "id": "nlp_processor",
+                "name": "NLP Processor",
+                "category": "nlp",
+                "description": "Natural language processing using OpenAI"
+            },
+            {
+                "id": "data_processor",
+                "name": "Data Processor",
+                "category": "data",
+                "description": "Data transformation and analysis using pandas"
+            }
+        ]
     }
 
 @app.post("/execute", response_model=ExecutionResponse)
@@ -56,21 +91,33 @@ async def execute_module(
     api_key: str = Depends(verify_api_key)
 ):
     """Execute a Python agent module"""
+    execution_id = f"exec_{uuid.uuid4().hex[:8]}"
+    
     try:
-        # TODO: Implement dynamic module loading
-        # For now, return placeholder response
+        agent_class = MODULE_REGISTRY.get(request.module_id)
+        
+        if not agent_class:
+            return ExecutionResponse(
+                execution_id=execution_id,
+                status="failed",
+                error=f"Module '{request.module_id}' not found. Available modules: {list(MODULE_REGISTRY.keys())}"
+            )
+        
+        agent = agent_class(org_id=request.org_id)
+        
+        result = await agent.execute(request.input_data)
+        
+        agent.close_db()
         
         return ExecutionResponse(
-            execution_id=f"exec_{request.task_id}",
+            execution_id=execution_id,
             status="completed",
-            output={
-                "message": f"Module {request.module_id} executed successfully",
-                "org_id": request.org_id
-            }
+            output=result
         )
+        
     except Exception as e:
         return ExecutionResponse(
-            execution_id="",
+            execution_id=execution_id,
             status="failed",
             error=str(e)
         )

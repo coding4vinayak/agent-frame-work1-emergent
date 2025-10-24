@@ -17,7 +17,10 @@ import {
   insertUserSchema,
   insertTaskSchema,
   insertApiKeySchema,
+  insertModuleSchema,
+  insertModuleExecutionSchema,
 } from "@shared/schema";
+import { PythonAgentClient } from "./python-agent-client";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Authentication Routes =====
@@ -323,6 +326,205 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Agent execution started", agentId: id });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to run agent" });
+    }
+  });
+
+  // ===== Module Routes (Python Agents) =====
+
+  // Get all modules
+  app.get("/api/modules", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+    try {
+      const modules = await storage.getAllModules(req.user!.orgId);
+      res.json(modules);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch modules" });
+    }
+  });
+
+  // Get a specific module
+  app.get("/api/modules/:id", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const module = await storage.getModule(id, req.user!.orgId);
+      
+      if (!module) {
+        return res.status(404).json({ message: "Module not found" });
+      }
+
+      res.json(module);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch module" });
+    }
+  });
+
+  // Create a module
+  app.post("/api/modules", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const moduleData = insertModuleSchema.parse({
+        ...req.body,
+        orgId: req.user!.orgId,
+      });
+
+      const module = await storage.createModule(moduleData);
+      res.json(module);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create module" });
+    }
+  });
+
+  // Update module status
+  app.patch("/api/modules/:id/status", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!["active", "inactive", "error"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      await storage.updateModuleStatus(id, req.user!.orgId, status);
+      res.json({ message: "Module status updated successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update module status" });
+    }
+  });
+
+  // Delete a module
+  app.delete("/api/modules/:id", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteModule(id, req.user!.orgId);
+      res.json({ message: "Module deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to delete module" });
+    }
+  });
+
+  // Execute a module (calls Python service)
+  app.post("/api/modules/:id/execute", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { inputData, taskId } = req.body;
+
+      const module = await storage.getModule(id, req.user!.orgId);
+      if (!module) {
+        return res.status(404).json({ message: "Module not found" });
+      }
+
+      if (module.status !== "active") {
+        return res.status(400).json({ message: "Module is not active" });
+      }
+
+      // Get organization's API key for Python service
+      const apiKeys = await storage.getAllApiKeys(req.user!.orgId);
+      if (!apiKeys.length) {
+        return res.status(400).json({ 
+          message: "No API key configured. Please create an API key first." 
+        });
+      }
+
+      // Create module execution record
+      const execution = await storage.createModuleExecution({
+        moduleId: id,
+        taskId: taskId || null,
+        input: JSON.stringify(inputData),
+        status: "pending",
+        orgId: req.user!.orgId,
+      });
+
+      // Call Python agent service
+      try {
+        const client = new PythonAgentClient(apiKeys[0].key);
+        
+        await storage.updateModuleExecution(
+          execution.id,
+          req.user!.orgId,
+          "running"
+        );
+
+        const result = await client.executeModule(
+          module.pythonModule,
+          req.user!.orgId,
+          inputData,
+          taskId
+        );
+
+        await storage.updateModuleExecution(
+          execution.id,
+          req.user!.orgId,
+          result.status === "completed" ? "completed" : "failed",
+          result.output ? JSON.stringify(result.output) : undefined,
+          result.error
+        );
+
+        res.json({
+          executionId: execution.id,
+          ...result,
+        });
+      } catch (error: any) {
+        await storage.updateModuleExecution(
+          execution.id,
+          req.user!.orgId,
+          "failed",
+          undefined,
+          error.message
+        );
+
+        throw error;
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to execute module" });
+    }
+  });
+
+  // Get all module executions
+  app.get("/api/module-executions", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const executions = await storage.getAllModuleExecutions(req.user!.orgId, limit);
+      res.json(executions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch executions" });
+    }
+  });
+
+  // Get executions for a specific module
+  app.get("/api/modules/:id/executions", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      
+      const executions = await storage.getModuleExecutionsByModule(
+        id,
+        req.user!.orgId,
+        limit
+      );
+      res.json(executions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch executions" });
+    }
+  });
+
+  // Health check for Python service
+  app.get("/api/python-agent/health", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const apiKeys = await storage.getAllApiKeys(req.user!.orgId);
+      
+      if (!apiKeys.length) {
+        return res.json({ 
+          status: "unavailable",
+          message: "No API key configured" 
+        });
+      }
+
+      const client = new PythonAgentClient(apiKeys[0].key);
+      const health = await client.healthCheck();
+      res.json(health);
+    } catch (error: any) {
+      res.status(500).json({ 
+        status: "unhealthy", 
+        error: error.message 
+      });
     }
   });
 

@@ -17,6 +17,7 @@ import Users from "@/pages/users";
 import Tasks from "@/pages/tasks";
 import Reports from "@/pages/reports";
 import Agents from "@/pages/agents";
+import Modules from "@/pages/modules";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
@@ -92,6 +93,11 @@ function Router() {
       <Route path="/agents">
         <DashboardLayout>
           <Agents />
+        </DashboardLayout>
+      </Route>
+      <Route path="/modules">
+        <DashboardLayout>
+          <Modules />
         </DashboardLayout>
       </Route>
       <Route path="/settings">

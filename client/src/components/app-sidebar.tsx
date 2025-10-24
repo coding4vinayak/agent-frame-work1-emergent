@@ -6,6 +6,7 @@ import {
   BarChart3,
   Settings,
   Cpu,
+  Package,
   LogOut,
 } from "lucide-react";
 import {
@@ -47,6 +48,11 @@ const menuItems = [
     title: "Agents",
     url: "/agents",
     icon: Cpu,
+  },
+  {
+    title: "Modules",
+    url: "/modules",
+    icon: Package,
   },
   {
     title: "Settings",

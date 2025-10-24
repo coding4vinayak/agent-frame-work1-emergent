@@ -96,6 +96,33 @@ export const resourceUsage = pgTable("resource_usage", {
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
+// Modules table (Python agent modules)
+export const modules = pgTable("modules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  pythonModule: text("python_module").notNull(),
+  endpoint: text("endpoint"),
+  config: text("config"),
+  status: agentStatusEnum("status").notNull().default("active"),
+  orgId: varchar("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Module Executions table (track module execution history)
+export const moduleExecutions = pgTable("module_executions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  moduleId: varchar("module_id").notNull().references(() => modules.id, { onDelete: "cascade" }),
+  taskId: varchar("task_id").references(() => tasks.id, { onDelete: "set null" }),
+  input: text("input"),
+  output: text("output"),
+  status: taskStatusEnum("status").notNull().default("pending"),
+  error: text("error"),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+  orgId: varchar("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+});
+
 // Relations
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   users: many(users),
@@ -105,6 +132,8 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   integrations: many(integrations),
   apiKeys: many(apiKeys),
   resourceUsage: many(resourceUsage),
+  modules: many(modules),
+  moduleExecutions: many(moduleExecutions),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -126,7 +155,7 @@ export const agentsRelations = relations(agents, ({ one, many }) => ({
   logs: many(logs),
 }));
 
-export const tasksRelations = relations(tasks, ({ one }) => ({
+export const tasksRelations = relations(tasks, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [tasks.orgId],
     references: [organizations.id],
@@ -139,6 +168,7 @@ export const tasksRelations = relations(tasks, ({ one }) => ({
     fields: [tasks.agentId],
     references: [agents.id],
   }),
+  moduleExecutions: many(moduleExecutions),
 }));
 
 export const logsRelations = relations(logs, ({ one }) => ({
@@ -178,6 +208,29 @@ export const resourceUsageRelations = relations(resourceUsage, ({ one }) => ({
   user: one(users, {
     fields: [resourceUsage.userId],
     references: [users.id],
+  }),
+}));
+
+export const modulesRelations = relations(modules, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [modules.orgId],
+    references: [organizations.id],
+  }),
+  executions: many(moduleExecutions),
+}));
+
+export const moduleExecutionsRelations = relations(moduleExecutions, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [moduleExecutions.orgId],
+    references: [organizations.id],
+  }),
+  module: one(modules, {
+    fields: [moduleExecutions.moduleId],
+    references: [modules.id],
+  }),
+  task: one(tasks, {
+    fields: [moduleExecutions.taskId],
+    references: [tasks.id],
   }),
 }));
 
@@ -225,6 +278,17 @@ export const insertResourceUsageSchema = createInsertSchema(resourceUsage).omit(
   timestamp: true,
 });
 
+export const insertModuleSchema = createInsertSchema(modules).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertModuleExecutionSchema = createInsertSchema(moduleExecutions).omit({
+  id: true,
+  startedAt: true,
+  completedAt: true,
+});
+
 // Login schema
 export const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -268,6 +332,12 @@ export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
 
 export type ResourceUsage = typeof resourceUsage.$inferSelect;
 export type InsertResourceUsage = z.infer<typeof insertResourceUsageSchema>;
+
+export type Module = typeof modules.$inferSelect;
+export type InsertModule = z.infer<typeof insertModuleSchema>;
+
+export type ModuleExecution = typeof moduleExecutions.$inferSelect;
+export type InsertModuleExecution = z.infer<typeof insertModuleExecutionSchema>;
 
 export type LoginData = z.infer<typeof loginSchema>;
 export type SignupData = z.infer<typeof signupSchema>;

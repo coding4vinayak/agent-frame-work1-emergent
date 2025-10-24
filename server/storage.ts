@@ -8,6 +8,8 @@ import {
   integrations,
   apiKeys,
   resourceUsage,
+  modules,
+  moduleExecutions,
   type User,
   type InsertUser,
   type Organization,
@@ -24,6 +26,10 @@ import {
   type InsertApiKey,
   type ResourceUsage,
   type InsertResourceUsage,
+  type Module,
+  type InsertModule,
+  type ModuleExecution,
+  type InsertModuleExecution,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -73,6 +79,30 @@ export interface IStorage {
   // Resource Usage
   getResourceUsage(orgId: string): Promise<ResourceUsage[]>;
   createResourceUsage(usage: InsertResourceUsage): Promise<ResourceUsage>;
+
+  // Modules
+  getAllModules(orgId: string): Promise<Module[]>;
+  getModule(id: string, orgId: string): Promise<Module | undefined>;
+  createModule(module: InsertModule): Promise<Module>;
+  updateModuleStatus(
+    id: string,
+    orgId: string,
+    status: "active" | "inactive" | "error"
+  ): Promise<void>;
+  deleteModule(id: string, orgId: string): Promise<void>;
+
+  // Module Executions
+  getAllModuleExecutions(orgId: string, limit?: number): Promise<ModuleExecution[]>;
+  getModuleExecution(id: string, orgId: string): Promise<ModuleExecution | undefined>;
+  getModuleExecutionsByModule(moduleId: string, orgId: string, limit?: number): Promise<ModuleExecution[]>;
+  createModuleExecution(execution: InsertModuleExecution): Promise<ModuleExecution>;
+  updateModuleExecution(
+    id: string,
+    orgId: string,
+    status: "pending" | "running" | "completed" | "failed",
+    output?: string,
+    error?: string
+  ): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -236,6 +266,107 @@ export class DatabaseStorage implements IStorage {
       .values(usage)
       .returning();
     return newUsage;
+  }
+
+  // Modules
+  async getAllModules(orgId: string): Promise<Module[]> {
+    return await db
+      .select()
+      .from(modules)
+      .where(eq(modules.orgId, orgId))
+      .orderBy(desc(modules.createdAt));
+  }
+
+  async getModule(id: string, orgId: string): Promise<Module | undefined> {
+    const [module] = await db
+      .select()
+      .from(modules)
+      .where(and(eq(modules.id, id), eq(modules.orgId, orgId)));
+    return module || undefined;
+  }
+
+  async createModule(module: InsertModule): Promise<Module> {
+    const [newModule] = await db.insert(modules).values(module).returning();
+    return newModule;
+  }
+
+  async updateModuleStatus(
+    id: string,
+    orgId: string,
+    status: "active" | "inactive" | "error"
+  ): Promise<void> {
+    await db
+      .update(modules)
+      .set({ status })
+      .where(and(eq(modules.id, id), eq(modules.orgId, orgId)));
+  }
+
+  async deleteModule(id: string, orgId: string): Promise<void> {
+    await db
+      .delete(modules)
+      .where(and(eq(modules.id, id), eq(modules.orgId, orgId)));
+  }
+
+  // Module Executions
+  async getAllModuleExecutions(orgId: string, limit = 100): Promise<ModuleExecution[]> {
+    return await db
+      .select()
+      .from(moduleExecutions)
+      .where(eq(moduleExecutions.orgId, orgId))
+      .orderBy(desc(moduleExecutions.startedAt))
+      .limit(limit);
+  }
+
+  async getModuleExecution(id: string, orgId: string): Promise<ModuleExecution | undefined> {
+    const [execution] = await db
+      .select()
+      .from(moduleExecutions)
+      .where(and(eq(moduleExecutions.id, id), eq(moduleExecutions.orgId, orgId)));
+    return execution || undefined;
+  }
+
+  async getModuleExecutionsByModule(
+    moduleId: string,
+    orgId: string,
+    limit = 50
+  ): Promise<ModuleExecution[]> {
+    return await db
+      .select()
+      .from(moduleExecutions)
+      .where(and(eq(moduleExecutions.moduleId, moduleId), eq(moduleExecutions.orgId, orgId)))
+      .orderBy(desc(moduleExecutions.startedAt))
+      .limit(limit);
+  }
+
+  async createModuleExecution(execution: InsertModuleExecution): Promise<ModuleExecution> {
+    const [newExecution] = await db
+      .insert(moduleExecutions)
+      .values(execution)
+      .returning();
+    return newExecution;
+  }
+
+  async updateModuleExecution(
+    id: string,
+    orgId: string,
+    status: "pending" | "running" | "completed" | "failed",
+    output?: string,
+    error?: string
+  ): Promise<void> {
+    const updateData: any = { status };
+    if (status === "completed" || status === "failed") {
+      updateData.completedAt = new Date();
+    }
+    if (output) {
+      updateData.output = output;
+    }
+    if (error) {
+      updateData.error = error;
+    }
+    await db
+      .update(moduleExecutions)
+      .set(updateData)
+      .where(and(eq(moduleExecutions.id, id), eq(moduleExecutions.orgId, orgId)));
   }
 }
 
