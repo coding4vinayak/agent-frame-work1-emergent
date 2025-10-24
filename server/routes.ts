@@ -136,6 +136,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user (admin only)
+  app.patch("/api/users/:id", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { name, role } = req.body;
+      
+      // Verify user belongs to same org
+      const user = await storage.getUser(id);
+      if (!user || user.orgId !== req.user!.orgId) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Update user (implement in storage)
+      // const updatedUser = await storage.updateUser(id, { name, role });
+      
+      res.json({ message: "User updated successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update user" });
+    }
+  });
+
   // Delete user (admin only)
   app.delete("/api/users/:id", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
     try {

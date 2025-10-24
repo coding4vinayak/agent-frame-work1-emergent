@@ -223,15 +223,31 @@ export default function Users() {
                         : "Never"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteMutation.mutate(user.id)}
-                        disabled={deleteMutation.isPending}
-                        data-testid={`button-delete-${user.id}`}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            // TODO: Add edit user dialog
+                            toast({
+                              title: "Edit user",
+                              description: "Edit functionality coming soon",
+                            });
+                          }}
+                          data-testid={`button-edit-${user.id}`}
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteMutation.mutate(user.id)}
+                          disabled={deleteMutation.isPending}
+                          data-testid={`button-delete-${user.id}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
