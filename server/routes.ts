@@ -1,0 +1,364 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
+import { storage } from "./storage";
+import {
+  generateToken,
+  requireAuth,
+  requireRole,
+  requireOrgAccess,
+  type AuthRequest,
+} from "./middleware/auth";
+import {
+  loginSchema,
+  signupSchema,
+  passwordResetSchema,
+  insertUserSchema,
+  insertTaskSchema,
+  insertApiKeySchema,
+} from "@shared/schema";
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // ===== Authentication Routes =====
+
+  // Login
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = loginSchema.parse(req.body);
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      await storage.updateUserLastLogin(user.id);
+
+      const token = generateToken(user);
+      res.json({ token, user: { ...user, password: undefined } });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Login failed" });
+    }
+  });
+
+  // Signup
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const { name, email, password, organizationName } = signupSchema.parse(req.body);
+
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+
+      // Create organization first
+      const organization = await storage.createOrganization({
+        name: organizationName,
+        plan: "free",
+      });
+
+      // Hash password and create user
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({
+        name,
+        email,
+        password: hashedPassword,
+        role: "admin",
+        orgId: organization.id,
+      });
+
+      const token = generateToken(user);
+      res.json({ token, user: { ...user, password: undefined } });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Signup failed" });
+    }
+  });
+
+  // Password reset (placeholder)
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { email } = passwordResetSchema.parse(req.body);
+      
+      // In production, send actual email
+      // For now, just return success
+      res.json({ message: "Password reset email sent" });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Reset failed" });
+    }
+  });
+
+  // ===== User Routes =====
+
+  // Get all users in organization
+  app.get("/api/users", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+    try {
+      const users = await storage.getAllUsers(req.user!.orgId);
+      res.json(users.map((u) => ({ ...u, password: undefined })));
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch users" });
+    }
+  });
+
+  // Invite user (admin only)
+  app.post("/api/users/invite", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { name, email, role } = req.body;
+      
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      // Generate temporary password
+      const tempPassword = randomBytes(16).toString("hex");
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+      const user = await storage.createUser({
+        name,
+        email,
+        password: hashedPassword,
+        role: role || "member",
+        orgId: req.user!.orgId,
+      });
+
+      // In production, send invitation email with temp password
+      res.json({ 
+        user: { ...user, password: undefined },
+        message: "Invitation sent"
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to invite user" });
+    }
+  });
+
+  // Delete user (admin only)
+  app.delete("/api/users/:id", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteUser(id, req.user!.orgId);
+      res.json({ message: "User deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to delete user" });
+    }
+  });
+
+  // ===== Organization Routes =====
+
+  // Get organization details
+  app.get("/api/organization", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const org = await storage.getOrganization(req.user!.orgId);
+      res.json(org);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch organization" });
+    }
+  });
+
+  // ===== Task Routes =====
+
+  // Get all tasks in organization
+  app.get("/api/tasks", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+    try {
+      const tasks = await storage.getAllTasks(req.user!.orgId);
+      res.json(tasks);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch tasks" });
+    }
+  });
+
+  // Create task
+  app.post("/api/tasks", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const taskData = {
+        description: req.body.description,
+        status: "pending" as const,
+        userId: req.user!.id,
+        orgId: req.user!.orgId,
+      };
+
+      const task = await storage.createTask(taskData);
+      res.json(task);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create task" });
+    }
+  });
+
+  // ===== Logs Routes =====
+
+  // Get logs for organization
+  app.get("/api/logs", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const logs = await storage.getAllLogs(req.user!.orgId, limit);
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch logs" });
+    }
+  });
+
+  // ===== Metrics Routes =====
+
+  // Dashboard metrics
+  app.get("/api/metrics/dashboard", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+    try {
+      const tasks = await storage.getAllTasks(req.user!.orgId);
+      const users = await storage.getAllUsers(req.user!.orgId);
+      
+      const stats = {
+        activeUsers: users.length,
+        tasksDone: tasks.filter((t) => t.status === "completed").length,
+        leadsGenerated: Math.floor(Math.random() * 100) + 50, // Placeholder
+        tasksPending: tasks.filter((t) => t.status === "pending").length,
+      };
+
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch dashboard metrics" });
+    }
+  });
+
+  // Reports metrics
+  app.get("/api/metrics/reports", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+    try {
+      const tasks = await storage.getAllTasks(req.user!.orgId);
+      const users = await storage.getAllUsers(req.user!.orgId);
+      const resourceUsages = await storage.getResourceUsage(req.user!.orgId);
+
+      // Tasks by status
+      const tasksByStatus = [
+        { status: "Pending", count: tasks.filter((t) => t.status === "pending").length },
+        { status: "Running", count: tasks.filter((t) => t.status === "running").length },
+        { status: "Completed", count: tasks.filter((t) => t.status === "completed").length },
+        { status: "Failed", count: tasks.filter((t) => t.status === "failed").length },
+      ];
+
+      // Tasks by user
+      const tasksByUser = users.map((user) => ({
+        user: user.name,
+        count: tasks.filter((t) => t.userId === user.id).length,
+      }));
+
+      // Tasks over time (last 7 days)
+      const tasksOverTime = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (6 - i));
+        const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        
+        return {
+          date: dateStr,
+          count: Math.floor(Math.random() * 20) + 5, // Placeholder
+        };
+      });
+
+      // Resource usage
+      const totalUsage = resourceUsages.reduce(
+        (acc, usage) => ({
+          apiCalls: acc.apiCalls + usage.apiCalls,
+          tasksRun: acc.tasksRun + usage.tasksRun,
+          storageUsed: acc.storageUsed + usage.storageUsed,
+        }),
+        { apiCalls: 0, tasksRun: 0, storageUsed: 0 }
+      );
+
+      res.json({
+        tasksByStatus,
+        tasksByUser,
+        tasksOverTime,
+        resourceUsage: totalUsage,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch reports" });
+    }
+  });
+
+  // ===== Agent Routes =====
+
+  // Get all agents
+  app.get("/api/agents", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+    try {
+      const agents = await storage.getAllAgents(req.user!.orgId);
+      res.json(agents);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch agents" });
+    }
+  });
+
+  // Run agent (placeholder)
+  app.post("/api/agents/:id/run", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const agent = await storage.getAgent(id, req.user!.orgId);
+      
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      // Placeholder for agent execution
+      res.json({ message: "Agent execution started", agentId: id });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to run agent" });
+    }
+  });
+
+  // ===== API Key Routes =====
+
+  // Get all API keys
+  app.get("/api/api-keys", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const keys = await storage.getAllApiKeys(req.user!.orgId);
+      res.json(keys);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch API keys" });
+    }
+  });
+
+  // Create API key
+  app.post("/api/api-keys", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { name } = req.body;
+      const key = `abw_${randomBytes(32).toString("hex")}`;
+
+      const apiKey = await storage.createApiKey({
+        name,
+        key,
+        orgId: req.user!.orgId,
+      });
+
+      res.json(apiKey);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to create API key" });
+    }
+  });
+
+  // Delete API key
+  app.delete("/api/api-keys/:id", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteApiKey(id, req.user!.orgId);
+      res.json({ message: "API key deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to delete API key" });
+    }
+  });
+
+  // ===== Integration Routes =====
+
+  // Get all integrations
+  app.get("/api/integrations", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+    try {
+      const integrations = await storage.getAllIntegrations(req.user!.orgId);
+      res.json(integrations);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch integrations" });
+    }
+  });
+
+  const httpServer = createServer(app);
+
+  return httpServer;
+}
