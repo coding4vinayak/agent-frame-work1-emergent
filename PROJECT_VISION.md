@@ -1,20 +1,21 @@
 
-# Abetworks - AI Automation Platform Vision & Roadmap
+# Abetworks - Business AI Automation Platform Vision & Roadmap
 
 ## 📋 Executive Summary
 
-**Project Name**: Abetworks AI Automation Platform  
+**Project Name**: Abetworks Business AI Automation Platform  
 **Current Status**: Foundation Phase - Frontend Complete, Backend In Progress  
-**Architecture**: Modular AI Agent System with Multi-Tenant Infrastructure
+**Architecture**: Modular AI Agent System for Business Automation
 
 ### What We're Building
 
-A production-ready, modular AI automation platform that enables organizations to:
-- Deploy intelligent AI agents for various automation tasks
-- Orchestrate complex workflows through agent chaining
-- Monitor and track automation performance in real-time
-- Scale operations through multi-tenant architecture
-- Integrate with external APIs and data sources
+A production-ready AI automation platform that enables businesses to:
+- **Collect & Process Leads** from forms, chatbots, and multiple sources
+- **Score & Qualify Leads** using AI-powered analysis
+- **Forecast Sales & Trends** with predictive analytics
+- **Automate Customer Interactions** through intelligent chatbots
+- **Orchestrate Business Workflows** with agent chaining
+- **Monitor Performance** in real-time with analytics dashboards
 
 ---
 
@@ -25,8 +26,7 @@ A production-ready, modular AI automation platform that enables organizations to
 #### 1. Authentication & User Management
 - **Login System** (`/login`) - JWT-based authentication
 - **Super Admin Login** (`/admin/login`) - Separate admin authentication
-- **Signup** (`/signup`) - First user becomes super admin, subsequent signups blocked
-- **Password Reset** - Placeholder for future implementation
+- **Signup** (`/signup`) - First user becomes super admin
 - **Multi-tenant Isolation** - Each organization has isolated data
 
 #### 2. Dashboard (`/dashboard`)
@@ -37,9 +37,9 @@ A production-ready, modular AI automation platform that enables organizations to
 - Tasks Pending count
 
 **Features**:
-- Clean, professional UI with Linear/Notion-inspired design
+- Clean, professional UI with modern design
 - Real-time metrics visualization
-- Responsive layout for desktop and tablet
+- Responsive layout
 - Interactive charts using Recharts
 
 #### 3. User Management (`/users`)
@@ -48,759 +48,703 @@ A production-ready, modular AI automation platform that enables organizations to
 - **Admin** - Organization management, user invites, API key management
 - **Member** - Task creation and viewing
 
-**Capabilities**:
-- Invite new users to organization
-- Assign roles (Member, Admin)
-- View user activity and last login
-- Delete users (Admin only)
-
 #### 4. Tasks System (`/tasks`)
 **Task Management**:
 - Create automation workflow tasks
 - Track task status (Pending, Running, Completed, Failed)
-- Filter tasks by status
 - Associate tasks with users and organizations
 - Task execution history
 
 #### 5. Reports & Analytics (`/reports`)
 **Metrics & Visualization**:
 - Aggregate task metrics per user/organization
-- Interactive bar and line charts
+- Interactive charts
 - Resource usage tracking
 - Performance analytics
-- Export capabilities (planned)
 
 #### 6. Settings (`/settings`)
 **Organization Configuration**:
-- Organization name and information
-- API key management (generate, view, revoke)
-- Integration management placeholders:
-  - Google API
-  - Email integrations
-  - WhatsApp integrations
-- User profile settings
+- Organization information
+- API key management
+- Integration placeholders
 
 #### 7. Agents Board (`/agents`) - **PLACEHOLDER READY**
 **Current State**:
 - Visual card/block layout for agents
-- Agent metadata display (name, type, status, description)
+- Agent metadata display
 - Action buttons: View, Run, Settings
-- **Ready for Backend Integration** - All UI components in place
-
-**What's Missing (Backend Integration Needed)**:
-- Actual agent execution logic
-- Agent configuration management
-- Real-time status updates
-- Execution results display
-
-#### 8. Modules Page (`/modules`) - **FUTURE INTEGRATION POINT**
-- Reserved for advanced module management
-- Agent marketplace (future)
-- Custom module builder (future)
+- **Ready for Backend Integration**
 
 ---
 
-## 🔧 Backend Architecture (To Be Built)
+## 🤖 Business AI Agent Types (What Backend Will Create)
 
-### Technology Stack
-- **Framework**: FastAPI (Python 3.11+)
-- **Database**: PostgreSQL with multi-tenant design
-- **ORM**: SQLAlchemy or Drizzle (depending on integration approach)
-- **Authentication**: JWT tokens (matching frontend)
-- **AI/ML Libraries**: OpenAI, LangChain, Anthropic
-- **Data Processing**: Pandas, NumPy
-- **Vector Database**: Qdrant, Pinecone, or PGVector (for semantic search)
+### 1. Form Data Collection Agent
 
-### Database Schema (Required Tables)
-
-#### Core Tables
-```sql
--- Users (already exists in schema.ts)
-users:
-  - id, name, email, password_hash, role, org_id, last_login, created_at
-
--- Organizations (already exists in schema.ts)
-organizations:
-  - id, name, logo, plan, created_at
-
--- Tasks (already exists in schema.ts)
-tasks:
-  - id, title, description, status, priority, org_id, user_id, created_at
-
--- API Keys (already exists in schema.ts)
-api_keys:
-  - id, name, key, org_id, created_at, last_used
-```
-
-#### New Tables for AI Agent System
-
-```sql
--- Agent Registry (tracks all available agents)
-agent_registry:
-  - id (uuid)
-  - name (text) - e.g., "Data Processing Agent"
-  - type (enum) - data_agent, automation_agent, insight_agent, monitoring_agent
-  - description (text)
-  - version (text)
-  - endpoint (text) - API endpoint for agent execution
-  - capabilities (jsonb) - List of what the agent can do
-  - config_schema (jsonb) - Expected configuration format
-  - resource_limits (jsonb) - CPU, memory, timeout limits
-  - status (enum) - active, inactive, maintenance
-  - created_at, updated_at
-  - org_id (uuid) - If org-specific, null for global agents
-
--- Agent Instances (organization-specific agent configurations)
-agent_instances:
-  - id (uuid)
-  - agent_id (references agent_registry)
-  - org_id (uuid)
-  - name (text) - Custom name for this instance
-  - config (jsonb) - Instance-specific configuration
-  - status (enum) - active, paused, error
-  - api_keys (jsonb) - Encrypted API keys for integrations
-  - created_by (uuid)
-  - created_at, updated_at
-  - last_run_at
-
--- Agent Executions (execution history and results)
-agent_executions:
-  - id (uuid)
-  - agent_instance_id (references agent_instances)
-  - task_id (references tasks) - Optional link to task
-  - org_id (uuid)
-  - user_id (uuid) - Who triggered the execution
-  - input_data (jsonb) - Input parameters
-  - output_data (jsonb) - Execution results
-  - status (enum) - pending, running, completed, failed
-  - error_message (text)
-  - started_at, completed_at
-  - duration_ms (integer)
-  - resource_usage (jsonb) - CPU, memory, API calls consumed
-
--- Workflows (chain multiple agents)
-workflows:
-  - id (uuid)
-  - org_id (uuid)
-  - name (text)
-  - description (text)
-  - steps (jsonb) - Array of agent_instance_ids with parameters
-  - trigger_type (enum) - manual, schedule, webhook, event
-  - trigger_config (jsonb) - Cron schedule or webhook URL
-  - status (enum) - active, paused, error
-  - created_by (uuid)
-  - created_at, updated_at
-
--- Workflow Executions
-workflow_executions:
-  - id (uuid)
-  - workflow_id (references workflows)
-  - org_id (uuid)
-  - status (enum) - pending, running, completed, failed
-  - current_step (integer)
-  - execution_logs (jsonb) - Step-by-step execution details
-  - started_at, completed_at
-  - triggered_by (text) - manual, schedule, webhook
-
--- Resource Usage Metrics
-resource_usage:
-  - id (uuid)
-  - org_id (uuid)
-  - user_id (uuid)
-  - agent_instance_id (uuid)
-  - metric_type (enum) - api_calls, compute_time, storage, tokens
-  - value (integer)
-  - timestamp
-  - period (enum) - hourly, daily, monthly
-
--- Integrations (external API connections)
-integrations:
-  - id (uuid)
-  - org_id (uuid)
-  - type (enum) - google, email, whatsapp, slack, custom
-  - name (text)
-  - api_key_encrypted (text)
-  - endpoint (text)
-  - config (jsonb) - Integration-specific settings
-  - status (enum) - active, inactive, error
-  - last_synced_at
-  - created_at, updated_at
-
--- Vector Embeddings (for semantic search agents)
-embeddings:
-  - id (uuid)
-  - org_id (uuid)
-  - agent_instance_id (uuid)
-  - source_type (text) - document, conversation, task
-  - source_id (uuid)
-  - content (text)
-  - embedding (vector) - Using pgvector extension
-  - metadata (jsonb)
-  - created_at
-```
-
----
-
-## 🤖 AI Agent Types (Detailed Specifications)
-
-### 1. Data Agent
-
-**Purpose**: Connect to external APIs/databases, clean and transform data, store embeddings
+**Purpose**: Capture, validate, and process lead data from web forms
 
 **Capabilities**:
-- API Integration (REST, GraphQL, WebSocket)
-- Data Validation & Cleaning
-- Format Transformation (JSON, CSV, XML)
-- Embedding Generation (for semantic search)
-- Vector Database Storage (Qdrant, Pinecone, PGVector)
+- Multi-source form integration (website, landing pages, social media)
+- Real-time data validation and cleaning
+- Duplicate detection
+- Auto-enrichment with external data sources
+- Email/SMS verification
+- Custom field mapping
 
 **Example Use Cases**:
-- Fetch customer data from CRM APIs
-- Clean and normalize contact information
-- Generate embeddings for semantic search
-- Sync data between multiple systems
+- Contact form submissions
+- Newsletter signups
+- Demo request forms
+- Quote request forms
+- Survey responses
 
 **Configuration Schema**:
 ```json
 {
-  "api_endpoint": "https://api.example.com",
-  "auth_type": "bearer_token",
-  "data_mapping": {
-    "source_field": "target_field"
+  "form_sources": [
+    {
+      "name": "Website Contact Form",
+      "webhook_url": "https://api.example.com/webhook",
+      "fields": {
+        "name": "required",
+        "email": "required",
+        "phone": "optional",
+        "company": "optional"
+      }
+    }
+  ],
+  "validation_rules": {
+    "email": "email_format",
+    "phone": "phone_format"
   },
-  "vector_db": {
-    "provider": "qdrant",
-    "collection": "customer_data"
+  "enrichment": {
+    "enabled": true,
+    "sources": ["clearbit", "hunter.io"]
+  },
+  "deduplication": {
+    "enabled": true,
+    "match_fields": ["email"]
   }
 }
 ```
 
 **Backend Implementation Requirements**:
-- HTTP client for API calls
-- Data transformation pipelines
-- Embedding model (OpenAI, Cohere, or local)
-- Vector DB connector
-- Error handling and retry logic
+- Webhook receiver for form submissions
+- Data validation engine
+- External API integrations (Clearbit, Hunter.io, etc.)
+- Duplicate detection algorithm
+- Data storage with multi-tenant isolation
 
 ---
 
-### 2. Automation Agent
+### 2. Chatbot Agent
 
-**Purpose**: Execute scheduled/triggered workflows, call APIs, send emails, automate repetitive tasks
+**Purpose**: Intelligent conversational AI for customer interaction and lead qualification
 
 **Capabilities**:
-- Scheduled Execution (cron-based)
-- Webhook Triggers
-- Email Sending (SMTP, SendGrid, etc.)
-- API Orchestration (multi-step API calls)
-- Conditional Logic (if/else workflows)
-- Loop Processing (batch operations)
+- Natural language understanding (NLU)
+- Multi-channel support (website, WhatsApp, Slack, email)
+- Lead qualification through conversation
+- FAQ handling
+- Appointment scheduling
+- Conversation history and analytics
+- Human handoff for complex queries
 
 **Example Use Cases**:
-- Send daily reports via email
-- Trigger actions based on webhook events
-- Automate data backup processes
-- Schedule periodic data syncs
+- Website visitor engagement
+- Pre-sales qualification
+- Customer support automation
+- Appointment booking
+- Product recommendations
 
 **Configuration Schema**:
 ```json
 {
-  "trigger": {
-    "type": "schedule",
-    "cron": "0 9 * * *"
+  "bot_personality": {
+    "name": "Abby",
+    "tone": "friendly_professional",
+    "language": "en"
   },
-  "actions": [
+  "channels": [
     {
-      "type": "api_call",
-      "endpoint": "https://api.example.com/data",
-      "method": "GET"
+      "type": "website",
+      "widget_config": {
+        "position": "bottom-right",
+        "primary_color": "#0066FF"
+      }
     },
     {
-      "type": "email",
-      "to": "admin@example.com",
-      "template": "daily_report"
+      "type": "whatsapp",
+      "phone_number": "+1234567890"
     }
   ],
-  "error_handling": {
-    "retry_count": 3,
-    "notify_on_failure": true
+  "qualification_questions": [
+    "What is your company size?",
+    "What is your budget range?",
+    "When do you plan to make a decision?"
+  ],
+  "handoff_triggers": [
+    "pricing",
+    "technical_questions",
+    "high_intent_keywords"
+  ],
+  "llm_config": {
+    "provider": "openai",
+    "model": "gpt-4",
+    "temperature": 0.7
   }
 }
 ```
 
 **Backend Implementation Requirements**:
-- Task scheduler (Celery, APScheduler)
-- Webhook listener
-- Email service integration
-- Workflow orchestration engine
-- Logging and monitoring
+- LLM integration (OpenAI, Anthropic, or local models)
+- Intent classification
+- Entity extraction
+- Conversation state management
+- Multi-channel connectors (WhatsApp API, Slack API, etc.)
+- Real-time messaging infrastructure
+- Conversation analytics
 
 ---
 
-### 3. Insight Agent
+### 3. Lead Scoring Agent
 
-**Purpose**: Summarize reports, generate insights from text/data, use LLMs for analysis
+**Purpose**: AI-powered lead qualification and ranking based on conversion probability
 
 **Capabilities**:
-- Text Summarization
-- Sentiment Analysis
-- Key Information Extraction
-- Trend Analysis
-- Report Generation
-- Dashboard Insights
+- Multi-factor scoring algorithm
+- Behavioral analysis (website visits, email opens, content downloads)
+- Demographic scoring (company size, industry, job title)
+- Engagement scoring (response time, interaction frequency)
+- Predictive scoring using machine learning
+- Auto-prioritization for sales team
+- Score decay over time
 
 **Example Use Cases**:
-- Summarize long documents
-- Analyze customer feedback sentiment
-- Generate executive summaries
-- Extract action items from meetings
+- Prioritize hot leads for sales follow-up
+- Identify high-value prospects
+- Trigger automated nurture campaigns for cold leads
+- Alert sales team about buying signals
 
-**Configuration Schema**:
+**Scoring Factors**:
 ```json
 {
-  "llm_provider": "openai",
-  "model": "gpt-4",
-  "task_type": "summarization",
-  "max_tokens": 500,
-  "temperature": 0.7,
-  "output_format": "markdown"
+  "demographic_factors": {
+    "company_size": {
+      "1-10": 10,
+      "11-50": 20,
+      "51-200": 40,
+      "201-1000": 60,
+      "1000+": 80
+    },
+    "industry": {
+      "technology": 80,
+      "finance": 70,
+      "healthcare": 60
+    },
+    "job_title": {
+      "C-level": 100,
+      "VP/Director": 80,
+      "Manager": 50,
+      "Individual Contributor": 20
+    }
+  },
+  "behavioral_factors": {
+    "website_visits": 5,
+    "demo_request": 50,
+    "pricing_page_view": 30,
+    "email_open": 5,
+    "email_click": 10,
+    "content_download": 20
+  },
+  "engagement_factors": {
+    "response_within_1_hour": 40,
+    "response_within_24_hours": 20,
+    "response_after_24_hours": 5
+  },
+  "ml_model": {
+    "enabled": true,
+    "retrain_interval": "weekly",
+    "features": ["all_above", "historical_conversion_data"]
+  }
 }
 ```
 
 **Backend Implementation Requirements**:
-- LLM API integration (OpenAI, Anthropic, local models)
-- Prompt engineering templates
-- Context management (token limits)
-- Cost optimization (caching, model selection)
-- Output formatting
+- Scoring algorithm engine
+- Behavioral tracking integration
+- Machine learning model (scikit-learn, XGBoost)
+- Real-time score calculation
+- Historical data analysis
+- Score threshold triggers
+- CRM integration for lead updates
 
 ---
 
-### 4. Monitoring Agent
+### 4. Forecasting Agent
 
-**Purpose**: Monitor API performance, user usage, system metrics, send alerts
+**Purpose**: Predictive analytics for sales, revenue, and business trends
 
 **Capabilities**:
-- API Health Checks
-- Performance Metrics (latency, throughput)
-- Usage Tracking (API calls, compute time)
-- Anomaly Detection
-- Alert Management (email, Slack, webhook)
-- Custom Metric Collection
+- Sales pipeline forecasting
+- Revenue predictions
+- Churn prediction
+- Seasonal trend analysis
+- Growth projection
+- Scenario modeling ("what-if" analysis)
+- Anomaly detection
 
 **Example Use Cases**:
-- Monitor API response times
-- Track organization usage limits
-- Alert on system failures
-- Generate performance reports
+- Monthly/quarterly sales forecasts
+- Revenue projections for planning
+- Predict customer churn risk
+- Identify growth opportunities
+- Budget planning
 
 **Configuration Schema**:
 ```json
 {
-  "metrics": [
+  "forecast_types": [
     {
-      "name": "api_latency",
-      "endpoint": "https://api.example.com/health",
-      "interval": 60,
-      "threshold": 1000
+      "type": "sales_revenue",
+      "time_horizon": "90_days",
+      "model": "prophet",
+      "confidence_interval": 0.95
+    },
+    {
+      "type": "deal_close_probability",
+      "features": ["deal_age", "engagement_score", "deal_size"],
+      "model": "gradient_boosting"
     }
   ],
-  "alerts": [
+  "data_sources": [
     {
-      "condition": "api_latency > 1000",
-      "action": "email",
-      "recipients": ["admin@example.com"]
+      "type": "historical_sales",
+      "table": "tasks",
+      "date_field": "completed_at",
+      "value_field": "result"
     }
-  ]
+  ],
+  "refresh_interval": "daily",
+  "alert_thresholds": {
+    "revenue_below_target": 0.8,
+    "high_churn_risk": 0.7
+  }
+}
+```
+
+**Models Used**:
+- **Time Series**: Prophet (Facebook), ARIMA, LSTM
+- **Classification**: Gradient Boosting, Random Forest
+- **Regression**: Linear Regression, XGBoost
+
+**Backend Implementation Requirements**:
+- Time series forecasting models
+- Machine learning pipeline
+- Historical data aggregation
+- Scenario simulation engine
+- Data visualization preparation
+- Alert system for threshold breaches
+
+---
+
+### 5. Email/SMS Marketing Agent
+
+**Purpose**: Automated, personalized outreach campaigns
+
+**Capabilities**:
+- Drip campaign automation
+- Personalized email generation (AI-powered)
+- A/B testing
+- Send time optimization
+- Engagement tracking
+- Automated follow-ups
+- SMS campaigns
+
+**Example Use Cases**:
+- Welcome email sequences
+- Nurture campaigns for cold leads
+- Re-engagement campaigns
+- Event invitations
+- Product announcements
+
+**Configuration Schema**:
+```json
+{
+  "campaign_type": "nurture",
+  "channels": ["email", "sms"],
+  "sequence": [
+    {
+      "step": 1,
+      "delay": "0_hours",
+      "channel": "email",
+      "subject": "Welcome to {{company_name}}!",
+      "template": "welcome_email",
+      "personalization": true
+    },
+    {
+      "step": 2,
+      "delay": "24_hours",
+      "channel": "email",
+      "subject": "Here's how we can help",
+      "template": "value_prop_email"
+    },
+    {
+      "step": 3,
+      "delay": "72_hours",
+      "channel": "sms",
+      "message": "Hi {{first_name}}, ready to see a demo?"
+    }
+  ],
+  "ai_personalization": {
+    "enabled": true,
+    "model": "gpt-4",
+    "tone": "professional_friendly"
+  },
+  "tracking": {
+    "opens": true,
+    "clicks": true,
+    "replies": true
+  }
 }
 ```
 
 **Backend Implementation Requirements**:
-- Metrics collection system
-- Time-series database (optional: InfluxDB, Prometheus)
-- Alert manager
-- Dashboard data aggregation
-- Historical data retention
+- Email service integration (SendGrid, Mailgun, AWS SES)
+- SMS service integration (Twilio, MessageBird)
+- Campaign scheduler
+- Template engine with AI generation
+- Tracking pixel and link tracking
+- Analytics and reporting
+
+---
+
+### 6. Data Enrichment Agent
+
+**Purpose**: Enhance lead data with external information sources
+
+**Capabilities**:
+- Company information lookup
+- Contact verification
+- Social media profile discovery
+- Technographic data (tech stack used)
+- Firmographic data (company size, revenue, industry)
+- Email verification and validation
+
+**Example Use Cases**:
+- Enrich new leads with company data
+- Find decision-maker contacts
+- Validate email addresses
+- Discover social profiles
+
+**Configuration Schema**:
+```json
+{
+  "enrichment_sources": [
+    {
+      "provider": "clearbit",
+      "api_key_secret": "CLEARBIT_API_KEY",
+      "fields": ["company_name", "company_size", "industry"]
+    },
+    {
+      "provider": "hunter_io",
+      "api_key_secret": "HUNTER_API_KEY",
+      "fields": ["email_verification", "company_emails"]
+    }
+  ],
+  "auto_enrich": true,
+  "enrich_on": ["lead_creation", "form_submission"]
+}
+```
+
+**Backend Implementation Requirements**:
+- Multiple API integrations (Clearbit, Hunter.io, FullContact, etc.)
+- Rate limiting and cost management
+- Data merge logic
+- Confidence scoring
+- Fallback strategies
+
+---
+
+## 🎨 Frontend Requirements (What Replit Will Build)
+
+### 1. Responsive Agent Management UI
+
+**Agent Cards/Dashboard**:
+- Visual representation of each agent type
+- Status indicators (Active, Paused, Error)
+- Quick action buttons (Configure, Run, View Analytics)
+- Agent performance metrics
+
+**Agent Configuration Interface**:
+- Form-based configuration for each agent
+- JSON editor for advanced settings
+- Template library for quick setup
+- Validation and testing tools
+
+### 2. Form Builder Interface
+
+**Visual Form Designer**:
+- Drag-and-drop form fields
+- Field validation rules
+- Custom styling options
+- Embed code generation
+- Preview mode
+
+**Form Analytics**:
+- Submission rates
+- Conversion tracking
+- Field completion rates
+- Drop-off analysis
+
+### 3. Chatbot Interface
+
+**Chatbot Customization**:
+- Personality and tone settings
+- Welcome message editor
+- FAQ management
+- Conversation flow builder (visual)
+- Widget customization (colors, position, branding)
+
+**Conversation Analytics**:
+- Active conversations list
+- Conversation history viewer
+- Intent analysis dashboard
+- Handoff tracking
+- Customer satisfaction scores
+
+### 4. Lead Management Dashboard
+
+**Lead List View**:
+- Sortable/filterable lead table
+- Lead score visualization
+- Quick actions (assign, tag, note)
+- Bulk operations
+- Export functionality
+
+**Lead Detail View**:
+- Complete lead profile
+- Activity timeline
+- Score breakdown
+- Conversation history
+- Notes and tasks
+
+### 5. Forecasting Dashboard
+
+**Interactive Charts**:
+- Revenue forecast line charts
+- Pipeline stage breakdown
+- Deal probability distribution
+- Trend analysis
+- Scenario comparison
+
+**Forecast Configuration**:
+- Time horizon selector
+- Model parameter tuning
+- Data source selection
+- Alert threshold settings
+
+### 6. Campaign Builder
+
+**Email/SMS Campaign Interface**:
+- Campaign sequence builder (visual timeline)
+- Template editor with AI assistance
+- Personalization token selector
+- A/B test configuration
+- Send time optimizer
+
+**Campaign Analytics**:
+- Delivery rates
+- Open/click rates
+- Conversion tracking
+- Engagement heatmaps
+- ROI calculation
 
 ---
 
 ## 🔌 Backend API Endpoints (To Be Implemented)
 
-### Agent Registry APIs
+### Form Collection Endpoints
 ```
-GET    /api/agents/registry          - List all available agent types
-POST   /api/agents/registry          - Register new agent type (Super Admin)
-GET    /api/agents/registry/:id      - Get agent type details
-PUT    /api/agents/registry/:id      - Update agent type
-DELETE /api/agents/registry/:id      - Remove agent type
-```
-
-### Agent Instance APIs
-```
-GET    /api/agents                   - List org's agent instances
-POST   /api/agents                   - Create new agent instance
-GET    /api/agents/:id               - Get agent instance details
-PUT    /api/agents/:id               - Update agent instance config
-DELETE /api/agents/:id               - Delete agent instance
-POST   /api/agents/:id/run           - Manually trigger agent execution
-POST   /api/agents/:id/pause         - Pause agent
-POST   /api/agents/:id/resume        - Resume agent
+POST   /api/forms/submit              - Receive form submission from webhook
+GET    /api/forms/submissions         - List all form submissions (filtered)
+GET    /api/forms/submissions/:id     - Get submission details
+POST   /api/forms/validate            - Validate form data
+POST   /api/forms/enrich              - Enrich submission with external data
 ```
 
-### Execution APIs
+### Chatbot Endpoints
 ```
-GET    /api/executions               - List executions (filtered by agent, date)
-GET    /api/executions/:id           - Get execution details
-POST   /api/executions/:id/retry     - Retry failed execution
-GET    /api/executions/stats         - Get execution statistics
-```
-
-### Workflow APIs
-```
-GET    /api/workflows                - List workflows
-POST   /api/workflows                - Create workflow
-GET    /api/workflows/:id            - Get workflow details
-PUT    /api/workflows/:id            - Update workflow
-DELETE /api/workflows/:id            - Delete workflow
-POST   /api/workflows/:id/execute    - Manually execute workflow
-GET    /api/workflows/:id/executions - Get workflow execution history
+POST   /api/chatbot/message           - Send message, get bot response
+GET    /api/chatbot/conversations     - List conversations
+GET    /api/chatbot/conversations/:id - Get conversation history
+POST   /api/chatbot/handoff           - Transfer to human agent
+PUT    /api/chatbot/config            - Update bot configuration
 ```
 
-### Integration APIs
+### Lead Scoring Endpoints
 ```
-GET    /api/integrations             - List integrations
-POST   /api/integrations             - Add integration
-GET    /api/integrations/:id         - Get integration details
-PUT    /api/integrations/:id         - Update integration
-DELETE /api/integrations/:id         - Remove integration
-POST   /api/integrations/:id/test    - Test integration connection
+GET    /api/leads                     - List leads with scores
+GET    /api/leads/:id                 - Get lead details with score breakdown
+POST   /api/leads/:id/score           - Manually trigger score recalculation
+GET    /api/leads/hot                 - Get high-scoring leads
+PUT    /api/leads/:id                 - Update lead information
 ```
 
-### Metrics APIs
+### Forecasting Endpoints
 ```
-GET    /api/metrics/usage            - Get resource usage metrics
-GET    /api/metrics/performance      - Get performance metrics
-GET    /api/metrics/agents           - Get agent-specific metrics
-GET    /api/metrics/dashboard        - Get dashboard summary (already exists)
+GET    /api/forecasts/revenue         - Get revenue forecast
+GET    /api/forecasts/pipeline        - Get pipeline forecast
+GET    /api/forecasts/churn           - Get churn predictions
+POST   /api/forecasts/scenario        - Run custom scenario analysis
+GET    /api/forecasts/accuracy        - Get model accuracy metrics
+```
+
+### Campaign Endpoints
+```
+GET    /api/campaigns                 - List campaigns
+POST   /api/campaigns                 - Create campaign
+GET    /api/campaigns/:id             - Get campaign details
+PUT    /api/campaigns/:id             - Update campaign
+POST   /api/campaigns/:id/start       - Start campaign
+POST   /api/campaigns/:id/pause       - Pause campaign
+GET    /api/campaigns/:id/analytics   - Get campaign performance
 ```
 
 ---
 
-## 🔐 Security & Multi-Tenancy Requirements
+## 🔐 Multi-Tenant Security (Critical)
 
-### Multi-Tenant Isolation Rules
-1. **All database queries MUST filter by `org_id`**
-2. **JWT tokens include org_id** - Verified on every request
-3. **API endpoints validate organization access** - Users can only access their org's data
-4. **Resource limits per organization** - Prevent resource abuse
-5. **Encrypted storage for API keys** - Use strong encryption for sensitive data
+**All Backend Agents MUST**:
+1. Filter all queries by `org_id`
+2. Validate JWT tokens on every request
+3. Never expose data across organizations
+4. Encrypt sensitive data (API keys, customer data)
+5. Implement rate limiting per organization
+6. Audit log all actions
 
-### Authentication Flow
-```
-User Login → JWT Token (includes: user_id, org_id, role)
-↓
-Every API Request → Verify JWT → Extract org_id → Filter queries by org_id
-↓
-Return only org-specific data
-```
-
-### Role-Based Access Control
-```
-Super Admin:
-  - Full system access
-  - Manage all organizations
-  - Global agent registry management
-  - System-wide metrics
-
-Admin:
-  - Full organization access
-  - User management (invite, remove)
-  - Agent instance management
-  - API key management
-  - Workflow creation
-
-Member:
-  - View organization data
-  - Create tasks
-  - View reports
-  - No admin functions
-```
-
----
-
-## 📊 Integration Points (Vector DB, External APIs)
-
-### Vector Database Integration
-
-**Supported Providers**:
-- **Qdrant** - Recommended for production (open-source, fast)
-- **Pinecone** - Managed service, easy setup
-- **PGVector** - PostgreSQL extension, simple deployment
-
-**Use Cases**:
-- Semantic search across documents
-- Similar task/customer finding
-- RAG (Retrieval-Augmented Generation) for LLMs
-- Duplicate detection
-
-**Integration Architecture**:
-```
-Data Agent → Generate Embeddings → Store in Vector DB
-                                    ↓
-Insight Agent → Query Vector DB → Retrieve Similar Data → LLM Analysis
-```
-
-**Example: PGVector Setup** (if using PostgreSQL)
-```sql
--- Enable extension
-CREATE EXTENSION vector;
-
--- Add embedding column to existing table
-ALTER TABLE embeddings 
-ADD COLUMN embedding vector(1536); -- OpenAI embedding dimension
-
--- Create index for fast similarity search
-CREATE INDEX ON embeddings 
-USING ivfflat (embedding vector_cosine_ops);
-```
-
-### External API Integration Framework
-
-**Common Integrations**:
-1. **Google APIs** (Drive, Sheets, Calendar)
-2. **Email Services** (SendGrid, Mailgun, SMTP)
-3. **WhatsApp Business API**
-4. **Slack/Discord** (notifications)
-5. **CRM Systems** (Salesforce, HubSpot)
-6. **Custom REST/GraphQL APIs**
-
-**Integration Pattern**:
+**Example (Python)**:
 ```python
-class IntegrationConnector:
-    def __init__(self, integration_config):
-        self.api_key = decrypt(integration_config['api_key'])
-        self.endpoint = integration_config['endpoint']
-    
-    def authenticate(self):
-        # OAuth or API key authentication
-        pass
-    
-    def fetch_data(self, params):
-        # GET request with retry logic
-        pass
-    
-    def send_data(self, payload):
-        # POST request with error handling
-        pass
-    
-    def validate_connection(self):
-        # Test API connectivity
-        pass
+class FormCollectionAgent(BaseAgent):
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        # Always validate org_id
+        if not self.validate_org_access(input_data['form_id'], 'forms'):
+            return {"success": False, "error": "Access denied"}
+        
+        # Process only org-specific data
+        submissions = self.get_submissions_by_org(self.org_id)
+        # ...
 ```
 
 ---
 
 ## 🚀 Development Roadmap
 
-### Phase 1: Backend Foundation (Weeks 1-2)
-- [ ] Set up FastAPI project structure
-- [ ] Implement database schema (all tables)
-- [ ] JWT authentication middleware
-- [ ] Multi-tenant query filtering
-- [ ] Basic API endpoints (agents, executions)
-- [ ] Database migrations
+### Phase 1: Form & Lead Collection (Weeks 1-2)
+**Backend**:
+- [ ] Form submission webhook receiver
+- [ ] Data validation engine
+- [ ] Duplicate detection
+- [ ] Email verification integration
 
-### Phase 2: Core Agent System (Weeks 3-4)
-- [ ] Implement BaseAgent abstract class
-- [ ] Build Data Agent with API integration
-- [ ] Build Automation Agent with scheduling
-- [ ] Build Insight Agent with LLM integration
-- [ ] Build Monitoring Agent with metrics collection
-- [ ] Agent execution engine
+**Frontend**:
+- [ ] Form builder interface
+- [ ] Form submission dashboard
+- [ ] Lead list view
+- [ ] Lead detail page
 
-### Phase 3: Frontend-Backend Integration (Week 5)
-- [ ] Connect Agents page to backend APIs
-- [ ] Real-time execution status updates
-- [ ] Agent configuration forms
-- [ ] Execution history display
-- [ ] Error handling and user feedback
+### Phase 2: Lead Scoring (Weeks 3-4)
+**Backend**:
+- [ ] Scoring algorithm implementation
+- [ ] Machine learning model training
+- [ ] Real-time score calculation
+- [ ] Score update triggers
 
-### Phase 4: Workflow System (Week 6)
-- [ ] Workflow builder backend logic
-- [ ] Agent chaining implementation
-- [ ] Conditional workflow steps
-- [ ] Workflow execution engine
-- [ ] Workflow monitoring and logs
+**Frontend**:
+- [ ] Lead score visualization
+- [ ] Score breakdown component
+- [ ] Hot leads dashboard
+- [ ] Scoring configuration UI
 
-### Phase 5: Advanced Features (Weeks 7-8)
-- [ ] Vector database integration (choose provider)
-- [ ] External API integrations (Google, Email, etc.)
-- [ ] Advanced metrics and analytics
-- [ ] Resource usage tracking and limits
-- [ ] Agent marketplace foundation
+### Phase 3: Chatbot (Weeks 5-6)
+**Backend**:
+- [ ] LLM integration (OpenAI/Anthropic)
+- [ ] Intent classification
+- [ ] Conversation state management
+- [ ] Multi-channel support
 
-### Phase 6: Production Hardening (Weeks 9-10)
-- [ ] Comprehensive testing (unit, integration, load)
-- [ ] Security audit
-- [ ] Performance optimization
-- [ ] Documentation completion
-- [ ] Deployment automation
-- [ ] Monitoring and logging setup
+**Frontend**:
+- [ ] Chat widget component
+- [ ] Conversation viewer
+- [ ] Bot configuration interface
+- [ ] Analytics dashboard
 
----
+### Phase 4: Forecasting (Weeks 7-8)
+**Backend**:
+- [ ] Time series models (Prophet)
+- [ ] ML pipeline (scikit-learn, XGBoost)
+- [ ] Scenario simulation
+- [ ] Alert system
 
-## 🧪 Testing Strategy
+**Frontend**:
+- [ ] Forecast charts (Recharts)
+- [ ] Model configuration UI
+- [ ] Scenario builder
+- [ ] Alert management
 
-### Backend Testing Requirements
+### Phase 5: Email/SMS Campaigns (Weeks 9-10)
+**Backend**:
+- [ ] Email service integration (SendGrid)
+- [ ] SMS service integration (Twilio)
+- [ ] Campaign scheduler
+- [ ] AI personalization engine
 
-**Unit Tests**:
-- Agent execution logic
-- Data transformation functions
-- Authentication middleware
-- Multi-tenant filtering
-
-**Integration Tests**:
-- API endpoint flows
-- Database operations
-- External API mocks
-- Workflow execution
-
-**Security Tests**:
-- Multi-tenant isolation verification
-- SQL injection prevention
-- API key encryption
-- JWT token validation
-
-**Load Tests**:
-- Concurrent agent executions
-- Database query performance
-- API response times under load
-- Resource usage limits
-
-**Test Data**:
-- Multiple test organizations
-- Sample agents of each type
-- Mock external API responses
-- Pre-generated embeddings
+**Frontend**:
+- [ ] Campaign builder (visual)
+- [ ] Template editor
+- [ ] Analytics dashboard
+- [ ] A/B test configuration
 
 ---
 
-## 📦 Deployment Configuration
+## 📊 Success Metrics
 
-### Environment Variables (Backend)
-```
-DATABASE_URL=postgresql://user:password@host:5432/abetworks
-JWT_SECRET=your-super-secret-key
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-QDRANT_URL=http://qdrant:6333
-QDRANT_API_KEY=...
-EMAIL_SMTP_HOST=smtp.gmail.com
-EMAIL_SMTP_PORT=587
-EMAIL_SMTP_USER=...
-EMAIL_SMTP_PASSWORD=...
-VECTOR_DB_PROVIDER=qdrant
-CELERY_BROKER_URL=redis://redis:6379/0
-```
+### Business Metrics
+- Lead capture rate increase
+- Lead-to-customer conversion rate
+- Average lead score accuracy
+- Forecast accuracy (±10%)
+- Email campaign open rate (>20%)
+- Chatbot engagement rate
 
-### Recommended Deployment Stack (Replit)
-- **Web Server**: Gunicorn + Uvicorn workers (for FastAPI)
-- **Task Queue**: Celery + Redis (for scheduled agents)
-- **Database**: PostgreSQL (Neon or Replit managed)
-- **Reverse Proxy**: Nginx (for production)
-- **Monitoring**: Prometheus + Grafana (optional)
+### Technical Metrics
+- API response time (<200ms)
+- Agent execution success rate (>95%)
+- System uptime (>99.9%)
+- Multi-tenant isolation (100%)
 
 ---
 
 ## 💡 Future Enhancements
 
-### Agent Marketplace
-- Pre-built agents for common tasks
-- Community-contributed agents
-- Agent templates and examples
-- One-click agent installation
-
-### Advanced Analytics
-- Predictive resource usage
-- Agent performance optimization suggestions
-- Cost analysis and forecasting
-- Anomaly detection in workflows
-
-### Visual Workflow Builder
-- Drag-and-drop interface
-- Visual agent chaining
-- Real-time workflow testing
-- Template library
-
-### Mobile App
-- iOS/Android apps for monitoring
-- Push notifications for agent status
-- Quick agent triggering
-- Dashboard on-the-go
-
-### Enterprise Features
-- SSO (Single Sign-On)
-- Advanced RBAC (custom roles)
-- Audit logging
-- Data residency options
-- SLA guarantees
+1. **WhatsApp Business API Integration**
+2. **Advanced Workflow Automation** (Zapier-like)
+3. **AI Voice Calls** for outreach
+4. **Video Meeting Bot** (Zoom/Meet integration)
+5. **Social Media Lead Generation** (LinkedIn, Facebook)
+6. **Agent Marketplace** (pre-built agents)
+7. **Mobile Apps** (iOS/Android)
 
 ---
 
-## 📖 Additional Documentation Needs
-
-### For Backend Developers:
-1. **API Reference** - Complete OpenAPI/Swagger documentation
-2. **Agent Development Guide** - How to build custom agents
-3. **Database Schema ERD** - Visual database relationships
-4. **Deployment Guide** - Step-by-step production setup
-5. **Security Best Practices** - Multi-tenant security guidelines
-
-### For Frontend Developers:
-1. **Component Library** - Reusable UI components
-2. **State Management** - React Query patterns
-3. **API Integration** - How to call backend endpoints
-4. **Testing Guide** - Frontend testing strategies
-5. **Design System** - UI/UX guidelines (already exists: design_guidelines.md)
-
----
-
-## 🤝 Handoff Notes
-
-### What Replit Has Completed:
-✅ Complete frontend with professional UI  
-✅ Authentication system (login, signup, admin login)  
-✅ Multi-tenant architecture in frontend  
-✅ Dashboard with metrics visualization  
-✅ User management with role-based access  
-✅ Tasks, reports, settings pages  
-✅ **Agents page with placeholder UI ready for backend**  
-✅ Database schema defined (shared/schema.ts)  
-✅ API endpoint structure prepared
-
-### What Backend Developer Needs to Build:
-🔨 FastAPI backend implementation  
-🔨 All database tables (agent_registry, agent_instances, etc.)  
-🔨 Four core agent types (Data, Automation, Insight, Monitoring)  
-🔨 Agent execution engine  
-🔨 Workflow system  
-🔨 Vector database integration  
-🔨 External API integrations  
-🔨 Resource usage tracking  
-🔨 Comprehensive testing  
-
-### Integration Points:
-- Frontend expects specific API response formats (see existing API calls in queryClient.ts)
-- Agent execution results should match the ExecutionResponse type
-- Multi-tenant filtering must be consistent with frontend org_id handling
-- JWT tokens must include user_id, org_id, and role claims
-
----
-
-**Document Version**: 1.0  
+**Document Version**: 2.0  
 **Last Updated**: 2024  
-**Status**: Foundation Complete - Backend Development Ready  
+**Focus**: Business AI Automation (Forms, Chatbots, Lead Scoring, Forecasting)  
+**Status**: Vision Complete - Ready for Implementation  
 
 ---
 
-This document serves as the complete blueprint for building the Abetworks AI Automation Platform. The frontend is production-ready and waiting for backend integration. All agent types, database schemas, and API endpoints are specified in detail for seamless backend development.
+**Division of Work**:
+- **Replit**: Frontend UI/UX, responsive design, user experience
+- **Backend Developer**: AI agents, business logic, API endpoints, integrations
+- **Integration**: Frontend calls backend APIs for all agent operations
