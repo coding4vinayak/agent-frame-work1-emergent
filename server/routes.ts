@@ -49,7 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Signup
+  // Signup (creates new organization with first admin user)
   app.post("/api/auth/signup", async (req, res) => {
     try {
       const { name, email, password, organizationName } = signupSchema.parse(req.body);
@@ -65,18 +65,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         plan: "free",
       });
 
-      // Hash password and create user
+      // Hash password and create FIRST user as admin
+      // This is the ONLY admin for this new organization
       const hashedPassword = await bcrypt.hash(password, 10);
       const user = await storage.createUser({
         name,
         email,
         password: hashedPassword,
-        role: "admin",
+        role: "admin", // First user is admin of the new org
         orgId: organization.id,
       });
 
       const token = generateToken(user);
-      res.json({ token, user: { ...user, password: undefined } });
+      res.json({ 
+        token, 
+        user: { ...user, password: undefined },
+        message: "Organization created successfully. You are the admin."
+      });
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Signup failed" });
     }
@@ -112,6 +117,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { name, email, role } = req.body;
       
+      // Validate role
+      const validRoles = ["member", "admin", "super_admin"];
+      const userRole = role || "member";
+      
+      if (!validRoles.includes(userRole)) {
+        return res.status(400).json({ message: "Invalid role specified" });
+      }
+      
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({ message: "User already exists" });
@@ -125,14 +138,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name,
         email,
         password: hashedPassword,
-        role: role || "member",
+        role: userRole, // Use validated role
         orgId: req.user!.orgId,
       });
 
       // In production, send invitation email with temp password
       res.json({ 
         user: { ...user, password: undefined },
-        message: "Invitation sent"
+        tempPassword, // Return this in dev only - remove in production
+        message: `User invited as ${userRole}`
       });
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Failed to invite user" });
