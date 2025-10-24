@@ -1,7 +1,7 @@
 
 # API Documentation
 
-Complete API reference for the Abetworks CRM platform.
+Complete API reference for the Abetworks Modular AI Automation Platform.
 
 ## Base URL
 
@@ -99,33 +99,6 @@ Create a new user account and organization.
 }
 ```
 
-**Error Response (400):**
-```json
-{
-  "message": "Email already exists"
-}
-```
-
----
-
-#### POST /api/auth/reset-password
-
-Request password reset (placeholder).
-
-**Request Body:**
-```json
-{
-  "email": "user@example.com"
-}
-```
-
-**Success Response (200):**
-```json
-{
-  "message": "Password reset email sent (placeholder)"
-}
-```
-
 ---
 
 ### User Endpoints
@@ -147,15 +120,6 @@ Get all users in the authenticated user's organization.
     "orgId": 1,
     "lastLogin": "2024-01-15T10:30:00Z",
     "createdAt": "2024-01-01T00:00:00Z"
-  },
-  {
-    "id": 2,
-    "name": "Jane Smith",
-    "email": "jane@example.com",
-    "role": "member",
-    "orgId": 1,
-    "lastLogin": "2024-01-14T15:20:00Z",
-    "createdAt": "2024-01-02T00:00:00Z"
   }
 ]
 ```
@@ -189,13 +153,6 @@ Invite a new user to the organization (Admin/Super Admin only).
 }
 ```
 
-**Error Response (403):**
-```json
-{
-  "message": "Admin access required"
-}
-```
-
 ---
 
 #### DELETE /api/users/:id
@@ -208,27 +165,6 @@ Remove a user from the organization (Admin/Super Admin only).
 ```json
 {
   "message": "User deleted successfully"
-}
-```
-
----
-
-### Organization Endpoints
-
-#### GET /api/organization
-
-Get the authenticated user's organization details.
-
-**Authentication Required:** Yes
-
-**Success Response (200):**
-```json
-{
-  "id": 1,
-  "name": "Acme Corp",
-  "logo": "https://example.com/logo.png",
-  "plan": "professional",
-  "createdAt": "2024-01-01T00:00:00Z"
 }
 ```
 
@@ -251,24 +187,13 @@ Get all tasks for the authenticated user's organization.
   {
     "id": 1,
     "agentId": 2,
-    "description": "Follow up with lead from website",
+    "description": "Process customer feedback with NLP",
     "status": "completed",
-    "result": "Email sent successfully",
+    "result": "Sentiment analysis completed",
     "userId": 1,
     "orgId": 1,
     "createdAt": "2024-01-15T09:00:00Z",
     "completedAt": "2024-01-15T09:15:00Z"
-  },
-  {
-    "id": 2,
-    "agentId": 1,
-    "description": "Analyze Q4 sales data",
-    "status": "pending",
-    "result": null,
-    "userId": 2,
-    "orgId": 1,
-    "createdAt": "2024-01-15T10:00:00Z",
-    "completedAt": null
   }
 ]
 ```
@@ -284,7 +209,7 @@ Create a new task.
 **Request Body:**
 ```json
 {
-  "description": "Send follow-up email to prospect",
+  "description": "Analyze sales data for Q4",
   "agentId": 1
 }
 ```
@@ -294,7 +219,7 @@ Create a new task.
 {
   "id": 3,
   "agentId": 1,
-  "description": "Send follow-up email to prospect",
+  "description": "Analyze sales data for Q4",
   "status": "pending",
   "result": null,
   "userId": 1,
@@ -306,50 +231,100 @@ Create a new task.
 
 ---
 
-### Agent Endpoints
+### Python Agent Module Endpoints
 
-#### GET /api/agents
+#### POST /api/modules/:id/execute
 
-Get all agents for the authenticated user's organization.
+Execute a Python agent module.
 
 **Authentication Required:** Yes
 
+**URL Parameters:**
+- `id`: Module ID (e.g., `nlp_processor`, `data_processor`)
+
+**Request Body:**
+```json
+{
+  "inputData": {
+    "text": "This is sample text to process",
+    "task": "summarize"
+  },
+  "taskId": "task_123"
+}
+```
+
 **Success Response (200):**
 ```json
-[
-  {
-    "id": 1,
-    "name": "Sales Assistant",
-    "type": "sales",
-    "description": "Automates follow-up emails and lead qualification",
-    "status": "active",
-    "orgId": 1,
-    "createdAt": "2024-01-01T00:00:00Z"
+{
+  "execution_id": "exec_abc123",
+  "status": "success",
+  "output": {
+    "result": "Processed summary of the text...",
+    "task_type": "summarize",
+    "model": "gpt-4",
+    "tokens_used": 150
   },
-  {
-    "id": 2,
-    "name": "Support Bot",
-    "type": "support",
-    "description": "Handles customer support inquiries",
-    "status": "active",
-    "orgId": 1,
-    "createdAt": "2024-01-01T00:00:00Z"
-  }
-]
+  "duration": 1250
+}
+```
+
+**Error Response (500):**
+```json
+{
+  "execution_id": "",
+  "status": "failed",
+  "error": "OpenAI API error: Rate limit exceeded",
+  "duration": 500
+}
 ```
 
 ---
 
-#### POST /api/agents/:id/run
+#### GET /api/modules/health
 
-Run an agent (placeholder functionality).
+Check Python agent service health status.
 
 **Authentication Required:** Yes
 
 **Success Response (200):**
 ```json
 {
-  "message": "Agent 'Sales Assistant' execution started (placeholder)"
+  "status": "healthy",
+  "service": "python-agents",
+  "modules": ["nlp_processor", "data_processor"]
+}
+```
+
+**Error Response (500):**
+```json
+{
+  "status": "unhealthy",
+  "service": "python-agents",
+  "error": "Connection refused"
+}
+```
+
+---
+
+#### GET /api/modules/available
+
+List all available Python agent modules.
+
+**Authentication Required:** Yes
+
+**Success Response (200):**
+```json
+{
+  "modules": [
+    {
+      "id": "nlp_processor",
+      "name": "NLPAgent"
+    },
+    {
+      "id": "data_processor",
+      "name": "DataAgent"
+    }
+  ]
 }
 ```
 
@@ -368,7 +343,7 @@ Get dashboard overview metrics.
 {
   "activeUsers": 5,
   "tasksDone": 42,
-  "leadsGenerated": 87,
+  "workflowsActive": 8,
   "tasksPending": 12
 }
 ```
@@ -396,8 +371,7 @@ Get detailed reports with chart data.
   ],
   "tasksOverTime": [
     { "date": "2024-01-01", "count": 5 },
-    { "date": "2024-01-02", "count": 8 },
-    { "date": "2024-01-03", "count": 12 }
+    { "date": "2024-01-02", "count": 8 }
   ]
 }
 ```
@@ -437,7 +411,7 @@ Generate a new API key (Admin/Super Admin only).
 **Request Body:**
 ```json
 {
-  "name": "Development API Key"
+  "name": "Python Agent API Key"
 }
 ```
 
@@ -446,7 +420,7 @@ Generate a new API key (Admin/Super Admin only).
 {
   "id": 2,
   "orgId": 1,
-  "name": "Development API Key",
+  "name": "Python Agent API Key",
   "key": "ak_abcdef1234567890",
   "createdAt": "2024-01-15T10:30:00Z",
   "lastUsed": null
@@ -470,54 +444,72 @@ Delete an API key (Admin/Super Admin only).
 
 ---
 
-### Integration Endpoints
+## Python Agent Module API
 
-#### GET /api/integrations
+The Python agent service runs on port 8000 and provides the following endpoints:
 
-Get all integrations for the organization.
+### POST /execute
 
-**Authentication Required:** Yes
+Execute a Python agent module directly (internal use).
 
-**Success Response (200):**
+**Headers:**
+- `X-API-Key`: API key for authentication
+
+**Request Body:**
 ```json
-[
-  {
-    "id": 1,
-    "orgId": 1,
-    "type": "google",
-    "apiKey": "encrypted_key",
-    "status": "active",
-    "createdAt": "2024-01-01T00:00:00Z"
+{
+  "module_id": "nlp_processor",
+  "org_id": "org_123",
+  "task_id": "task_456",
+  "input_data": {
+    "text": "Sample text",
+    "task": "summarize"
   }
-]
+}
+```
+
+**Response:**
+```json
+{
+  "execution_id": "exec_789",
+  "status": "success",
+  "output": { /* module-specific output */ },
+  "duration": 1250
+}
 ```
 
 ---
 
-### Log Endpoints
+### GET /health
 
-#### GET /api/logs
+Health check endpoint.
 
-Get activity logs for the organization.
-
-**Authentication Required:** Yes
-
-**Query Parameters:**
-- `limit` (optional): Number of logs to return (default: 50)
-
-**Success Response (200):**
+**Response:**
 ```json
-[
-  {
-    "id": 1,
-    "agentId": 1,
-    "userId": 1,
-    "orgId": 1,
-    "message": "Task completed successfully",
-    "response": "Email sent to 5 recipients",
-    "timestamp": "2024-01-15T10:30:00Z"
-  }
-]
+{
+  "status": "healthy",
+  "service": "python-agents",
+  "modules": ["nlp_processor", "data_processor"]
+}
+```
+
+---
+
+### GET /modules
+
+List available modules (requires API key).
+
+**Headers:**
+- `X-API-Key`: API key for authentication
+
+**Response:**
+```json
+{
+  "modules": [
+    { "id": "nlp_processor", "name": "NLPAgent" },
+    { "id": "data_processor", "name": "DataAgent" }
+  ]
+}
 ```
 
 ---
@@ -528,5 +520,5 @@ Currently no rate limiting is implemented. This should be added in production.
 
 ## Versioning
 
-API Version: 1.0  
+API Version: 2.0 (AI Automation Platform)  
 No versioning strategy currently implemented.

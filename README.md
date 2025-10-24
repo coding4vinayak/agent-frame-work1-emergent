@@ -1,18 +1,25 @@
+# Abetworks - Modular AI Automation Platform
 
-# Abetworks CRM - Multi-Tenant Sales Automation Platform
-
-A production-ready, multi-tenant CRM and sales automation platform built with modern web technologies. The system provides comprehensive user management, task tracking, reporting, and agent placeholders for future AI integration.
+A production-ready, modular AI automation platform built for intelligent workflow orchestration. The system provides comprehensive user management, task tracking, reporting, and a powerful Python-based agent system for AI/ML workloads.
 
 ## 🚀 Features
 
 ### Core Functionality
 - ✅ **Multi-tenant Architecture** - Complete data isolation between organizations
 - ✅ **User Management** - Role-based access control (Member, Admin, Super Admin)
-- ✅ **Task Management** - Create, track, and manage tasks with status workflows
+- ✅ **Task Management** - Create, track, and manage automation workflows
 - ✅ **Dashboard Analytics** - Real-time metrics and reporting with interactive charts
 - ✅ **API Key Management** - Generate and manage API keys for integrations
-- ✅ **Agent System** - Placeholder infrastructure for AI agent integration
+- ✅ **Modular Agent System** - Python-based AI agents with dynamic module loading
+- ✅ **Workflow Orchestration** - Chain multiple agents for complex automation
 - ✅ **Secure Authentication** - JWT-based authentication with database verification
+
+### AI Automation Features
+- Python microservices for AI/ML processing
+- Modular agent architecture (NLP, data processing, ML models)
+- Real-time execution tracking
+- Agent execution history and analytics
+- Custom module configuration
 
 ### Security Features
 - Password hashing with bcrypt
@@ -20,6 +27,7 @@ A production-ready, multi-tenant CRM and sales automation platform built with mo
 - Multi-tenant data isolation
 - Role-based access control
 - Secure API key generation
+- Python ↔ Node.js authentication
 
 ## 🛠 Tech Stack
 
@@ -31,16 +39,24 @@ A production-ready, multi-tenant CRM and sales automation platform built with mo
 - **React Query** (TanStack Query) for data fetching
 - **Wouter** for routing
 
-### Backend
-- **Node.js** + Express
+### Backend API (Node.js)
+- **Node.js** + Express + TypeScript
 - **PostgreSQL** (Neon serverless)
 - **Drizzle ORM**
 - **JWT** authentication
 - **bcrypt** for password hashing
 
+### Agent Runtime (Python)
+- **Python 3.11+**
+- **FastAPI** for REST endpoints
+- **psycopg2** for database access
+- **OpenAI** and **LangChain** for AI capabilities
+- **Pandas** and **NumPy** for data processing
+
 ## 📋 Prerequisites
 
 - Node.js 18+ 
+- Python 3.11+
 - PostgreSQL database (Neon serverless recommended)
 - npm or yarn package manager
 
@@ -50,6 +66,9 @@ A production-ready, multi-tenant CRM and sales automation platform built with mo
 
 ```bash
 npm install
+cd python-agents
+pip install -r requirements.txt
+cd ..
 ```
 
 ### 2. Environment Setup
@@ -60,6 +79,18 @@ Create a `.env` file in the root directory:
 DATABASE_URL=your_postgresql_connection_string
 JWT_SECRET=your_secure_jwt_secret
 NODE_ENV=development
+PYTHON_AGENT_URL=http://0.0.0.0:8000
+PYTHON_API_KEY=your_secure_api_key
+OPENAI_API_KEY=sk-your-openai-api-key
+```
+
+Create a `.env` file in the `python-agents` directory:
+
+```env
+DATABASE_URL=your_postgresql_connection_string
+NODE_API_URL=http://0.0.0.0:5000
+PYTHON_API_KEY=your_secure_api_key
+OPENAI_API_KEY=sk-your-openai-api-key
 ```
 
 ### 3. Database Setup
@@ -76,10 +107,17 @@ For force migration:
 npm run db:push --force
 ```
 
-### 4. Start Development Server
+### 4. Start Development Servers
 
+**Terminal 1 - Node.js API:**
 ```bash
 npm run dev
+```
+
+**Terminal 2 - Python Agents:**
+```bash
+cd python-agents
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 The application will be available at the URL shown in the Replit webview.
@@ -87,7 +125,7 @@ The application will be available at the URL shown in the Replit webview.
 ## 📁 Project Structure
 
 ```
-abetworks-crm/
+abetworks/
 ├── client/                 # Frontend React application
 │   ├── src/
 │   │   ├── components/    # UI components (Shadcn)
@@ -101,9 +139,17 @@ abetworks-crm/
 │   ├── db.ts             # Database connection
 │   ├── routes.ts         # API routes
 │   ├── storage.ts        # Database operations
+│   ├── python-agent-client.ts  # Python agent communication
 │   └── index.ts          # Server entry point
+├── python-agents/         # Python AI agent runtime
+│   ├── agents/           # Agent implementations
+│   │   ├── base_agent.py # Abstract base class
+│   │   ├── nlp_agent.py  # NLP processing agent
+│   │   └── data_agent.py # Data transformation agent
+│   ├── main.py           # FastAPI server
+│   └── requirements.txt  # Python dependencies
 ├── shared/
-│   └── schema.ts         # Shared TypeScript types
+│   └── schema.ts         # Shared TypeScript types & DB schema
 └── design_guidelines.md  # UI/UX design system
 ```
 
@@ -123,206 +169,89 @@ Password reset workflow is implemented with email placeholder functionality.
 | Role | Permissions |
 |------|-------------|
 | **Member** | View tasks, create tasks, view reports |
-| **Admin** | All Member permissions + manage users, manage API keys, manage integrations |
+| **Admin** | All Member permissions + manage users, manage API keys, manage modules |
 | **Super Admin** | All Admin permissions + full organization control |
 
 ## 📊 Database Schema
 
-### Users
-- `id`: Unique identifier
-- `name`: User's full name
-- `email`: Login email (unique per organization)
-- `password`: Hashed password
-- `role`: User role (member, admin, super_admin)
-- `orgId`: Organization identifier
-- `lastLogin`: Last login timestamp
-- `createdAt`: Account creation timestamp
+### Core Tables
+- **Users**: User accounts with role-based access
+- **Organizations**: Multi-tenant organization data
+- **Tasks**: Automation workflow tasks
+- **Modules**: Python agent module registry
+- **ModuleExecutions**: Agent execution history and results
+- **Agents**: Agent configurations (legacy)
+- **ApiKeys**: API authentication keys
+- **Logs**: Activity and execution logs
 
-### Organizations
-- `id`: Unique identifier
-- `name`: Organization name
-- `logo`: Organization logo URL
-- `plan`: Subscription plan
-- `createdAt`: Organization creation timestamp
-
-### Tasks
-- `id`: Unique identifier
-- `agentId`: Associated agent (nullable)
-- `description`: Task description
-- `status`: Task status (pending, running, completed, failed)
-- `result`: Task result (nullable)
-- `userId`: Creator user ID
-- `orgId`: Organization ID
-- `createdAt`: Task creation timestamp
-- `completedAt`: Task completion timestamp (nullable)
-
-### Agents
-- `id`: Unique identifier
-- `name`: Agent name
-- `type`: Agent type (sales, support, analytics)
-- `description`: Agent description
-- `status`: Agent status (active, inactive)
-- `orgId`: Organization ID
-- `createdAt`: Agent creation timestamp
-
-### API Keys
-- `id`: Unique identifier
-- `orgId`: Organization ID
-- `name`: Key name/description
-- `key`: Generated API key
-- `createdAt`: Key creation timestamp
-- `lastUsed`: Last usage timestamp (nullable)
+### AI Agent Tables
+- **Modules**: Tracks available Python agent modules
+  - id, name, category, pythonModule, endpoint, config, status, orgId
+- **ModuleExecutions**: Execution history and analytics
+  - id, moduleId, taskId, input, output, status, error, duration, startedAt, completedAt
 
 ## 🔌 API Endpoints
 
 ### Authentication
-
-#### Login
-```http
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-```
-
-**Response:**
-```json
-{
-  "token": "jwt_token_here",
-  "user": {
-    "id": 1,
-    "name": "John Doe",
-    "email": "user@example.com",
-    "role": "admin",
-    "orgId": 1
-  }
-}
-```
-
-#### Signup
-```http
-POST /api/auth/signup
-Content-Type: application/json
-
-{
-  "name": "John Doe",
-  "email": "user@example.com",
-  "password": "password123",
-  "organizationName": "Acme Corp"
-}
-```
+- `POST /api/auth/login` - User login
+- `POST /api/auth/signup` - User registration
+- `POST /api/auth/reset-password` - Password reset
 
 ### Users
-
-#### Get All Users
-```http
-GET /api/users
-Authorization: Bearer {token}
-```
-
-#### Invite User (Admin only)
-```http
-POST /api/users/invite
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-  "name": "Jane Smith",
-  "email": "jane@example.com",
-  "role": "member"
-}
-```
-
-#### Delete User (Admin only)
-```http
-DELETE /api/users/:id
-Authorization: Bearer {token}
-```
+- `GET /api/users` - Get all users in organization
+- `POST /api/users/invite` - Invite new user (Admin only)
+- `DELETE /api/users/:id` - Delete user (Admin only)
 
 ### Tasks
+- `GET /api/tasks` - Get all tasks
+- `POST /api/tasks` - Create new task
 
-#### Get All Tasks
-```http
-GET /api/tasks
-Authorization: Bearer {token}
-```
-
-#### Create Task
-```http
-POST /api/tasks
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-  "description": "Follow up with lead",
-  "agentId": 1
-}
-```
+### Python Agent Modules
+- `POST /api/modules/:id/execute` - Execute a Python agent module
+- `GET /api/modules/health` - Check Python agent service health
+- `GET /api/modules/available` - List available Python modules
 
 ### Metrics
+- `GET /api/metrics/dashboard` - Dashboard statistics
+- `GET /api/metrics/reports` - Detailed reports with charts
 
-#### Dashboard Metrics
-```http
-GET /api/metrics/dashboard
-Authorization: Bearer {token}
+### API Keys
+- `GET /api/api-keys` - Get all API keys (Admin only)
+- `POST /api/api-keys` - Generate new API key (Admin only)
+- `DELETE /api/api-keys/:id` - Delete API key (Admin only)
+
+## 🤖 Python Agent System
+
+### Agent Architecture
+
+The platform uses a modular Python agent system where each agent inherits from `BaseAgent`:
+
+```python
+class NLPAgent(BaseAgent):
+    async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        # Agent implementation
+        pass
 ```
 
-**Response:**
-```json
-{
-  "activeUsers": 5,
-  "tasksDone": 42,
-  "leadsGenerated": 87,
-  "tasksPending": 12
-}
+### Available Agent Types
+
+1. **NLP Agent** (`nlp_processor`): Natural language processing with OpenAI
+2. **Data Agent** (`data_processor`): Data transformation with Pandas
+3. **Custom Agents**: Extend `BaseAgent` to create your own
+
+### Creating Custom Agents
+
+1. Create a new file in `python-agents/agents/`
+2. Inherit from `BaseAgent`
+3. Implement the `execute()` method
+4. Register in `MODULE_REGISTRY` in `main.py`
+
+### Execution Flow
+
 ```
-
-#### Reports
-```http
-GET /api/metrics/reports
-Authorization: Bearer {token}
-```
-
-### Agents
-
-#### Get All Agents
-```http
-GET /api/agents
-Authorization: Bearer {token}
-```
-
-#### Run Agent
-```http
-POST /api/agents/:id/run
-Authorization: Bearer {token}
-```
-
-### API Keys (Admin only)
-
-#### Get All API Keys
-```http
-GET /api/api-keys
-Authorization: Bearer {token}
-```
-
-#### Generate API Key
-```http
-POST /api/api-keys
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-  "name": "Production API Key"
-}
-```
-
-#### Delete API Key
-```http
-DELETE /api/api-keys/:id
-Authorization: Bearer {token}
+Frontend → Node.js API → Python FastAPI → Agent Module → Database
+   ↓           ↓              ↓              ↓            ↓
+Response ← JSON Result ← Execution Log ← Processing ← Multi-tenant Check
 ```
 
 ## 🎨 Design System
@@ -334,6 +263,7 @@ The application follows a professional Linear/Notion-inspired design system. Key
 - **Typography hierarchy** with Inter font family
 - **Blue accent color** scheme
 - **Responsive design** for mobile, tablet, and desktop
+- **Professional data-dense layouts**
 
 See [design_guidelines.md](./design_guidelines.md) for complete design specifications.
 
@@ -344,22 +274,33 @@ See [design_guidelines.md](./design_guidelines.md) for complete design specifica
 3. **Password Hashing**: All passwords are hashed with bcrypt before storage.
 4. **Multi-tenant Isolation**: All queries are scoped to the user's organization.
 5. **Role-based Access**: Middleware enforces role requirements on protected routes.
+6. **Python Agent Security**: API key authentication for Node.js ↔ Python communication.
+7. **Database Isolation**: All Python agent queries filter by `org_id`.
 
 ## 🧪 Development
 
 ### Available Scripts
 
-- `npm run dev` - Start development server
+- `npm run dev` - Start Node.js development server
 - `npm run build` - Build for production
 - `npm run db:push` - Push database schema changes
 - `npm run db:studio` - Open Drizzle Studio (database GUI)
+
+### Python Agent Development
+
+```bash
+cd python-agents
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
 
 ### Adding New Features
 
 1. **Database Changes**: Update `shared/schema.ts` and run `npm run db:push`
 2. **Backend Routes**: Add endpoints in `server/routes.ts`
-3. **Frontend Pages**: Create new pages in `client/src/pages/`
-4. **UI Components**: Use Shadcn components from `client/src/components/ui/`
+3. **Python Agents**: Create new agent in `python-agents/agents/`
+4. **Frontend Pages**: Create new pages in `client/src/pages/`
+5. **UI Components**: Use Shadcn components from `client/src/components/ui/`
 
 ## 📦 Deployment
 
@@ -367,8 +308,11 @@ The application is configured for deployment on Replit:
 
 1. Ensure all environment variables are set in Replit Secrets
 2. Database should be accessible from production
-3. Click the "Deploy" button in Replit
-4. Configure custom domain if needed
+3. Both Node.js and Python services must run simultaneously
+4. Click the "Deploy" button in Replit
+5. Configure custom domain if needed
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
 
 ## 🤝 Contributing
 
@@ -377,19 +321,21 @@ The application is configured for deployment on Replit:
 3. Add proper TypeScript types
 4. Follow the design system guidelines
 5. Test with multiple organizations and user roles
+6. Ensure Python agents respect `org_id` isolation
 
 ## 📝 License
 
-Proprietary - Abetworks CRM
+Proprietary - Abetworks
 
 ## 🆘 Support
 
 For issues, questions, or feature requests:
 - Check existing documentation in `replit.md` and `design_guidelines.md`
-- Review API endpoints and examples above
+- Review API endpoints in `docs/API.md`
+- See complete platform guide in `COMPLETE_AI_PLATFORM_GUIDE.md`
 - Contact the development team
 
 ---
 
-**Version:** 1.0.0  
+**Version:** 2.0.0 (AI Automation Platform)  
 **Last Updated:** 2024
