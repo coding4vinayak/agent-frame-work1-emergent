@@ -8,6 +8,7 @@ import {
   Cpu,
   Package,
   LogOut,
+  Store,
 } from "lucide-react";
 import {
   Sidebar,
@@ -43,6 +44,11 @@ const menuItems = [
     title: "Reports",
     url: "/reports",
     icon: BarChart3,
+  },
+  {
+    title: "Agent Shop",
+    url: "/agent-shop",
+    icon: Store,
   },
   {
     title: "Agents",
