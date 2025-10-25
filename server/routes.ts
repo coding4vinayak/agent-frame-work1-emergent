@@ -21,6 +21,14 @@ import {
   insertModuleExecutionSchema,
 } from "@shared/schema";
 import { PythonAgentClient } from "./python-agent-client";
+import { sql, and, eq, desc } from "drizzle-orm";
+import {
+  agentCatalog,
+  agentSubscriptions,
+  users,
+  tasks,
+  moduleExecutions,
+} from "@shared/db/schema"; // Assuming these imports are correct
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Authentication Routes =====
@@ -72,8 +80,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateUserLastLogin(user.id);
 
       const token = generateToken(user);
-      res.json({ 
-        token, 
+      res.json({
+        token,
         user: { ...user, password: undefined },
         message: `Welcome back, ${user.role === "super_admin" ? "Super Admin" : "Admin"}`
       });
@@ -90,8 +98,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if any user already exists
       const allUsers = await storage.getAllUsersGlobal();
       if (allUsers.length > 0) {
-        return res.status(403).json({ 
-          message: "Signup disabled. System already has a super admin. Contact the administrator to get invited." 
+        return res.status(403).json({
+          message: "Signup disabled. System already has a super admin. Contact the administrator to get invited."
         });
       }
 
@@ -117,8 +125,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const token = generateToken(user);
-      res.json({ 
-        token, 
+      res.json({
+        token,
         user: { ...user, password: undefined },
         message: "Super Admin account created successfully. You control the entire system."
       });
@@ -189,7 +197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // In production, send invitation email with temp password
-      res.json({ 
+      res.json({
         user: { ...user, password: undefined },
         tempPassword, // Return this in dev only - remove in production
         message: `User invited as ${userRole}. Email: ${email}, Temp Password: ${tempPassword}`
@@ -288,21 +296,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Metrics Routes =====
 
   // Dashboard metrics
-  app.get("/api/metrics/dashboard", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+  app.get("/api/metrics/dashboard", requireAuth, async (req, res) => {
     try {
-      const tasks = await storage.getAllTasks(req.user!.orgId);
-      const users = await storage.getAllUsers(req.user!.orgId);
+      const orgId = req.user!.orgId;
 
-      const stats = {
-        activeUsers: users.length,
-        tasksDone: tasks.filter((t) => t.status === "completed").length,
-        leadsGenerated: Math.floor(Math.random() * 100) + 50, // Placeholder
-        tasksPending: tasks.filter((t) => t.status === "pending").length,
-      };
+      // Get active users count
+      const activeUsers = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(eq(users.orgId, orgId));
 
-      res.json(stats);
+      // Get completed tasks
+      const completedTasks = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.orgId, orgId),
+            eq(tasks.status, "completed")
+          )
+        );
+
+      // Get pending tasks
+      const pendingTasks = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.orgId, orgId),
+            eq(tasks.status, "pending")
+          )
+        );
+
+      // Get total executions (as "leads generated" for now)
+      const totalExecutions = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(moduleExecutions)
+        .where(eq(moduleExecutions.orgId, orgId));
+
+      res.json({
+        activeUsers: Number(activeUsers[0]?.count || 0),
+        tasksDone: Number(completedTasks[0]?.count || 0),
+        leadsGenerated: Number(totalExecutions[0]?.count || 0),
+        tasksPending: Number(pendingTasks[0]?.count || 0),
+      });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to fetch dashboard metrics" });
+      res.status(500).json({ message: error.message });
     }
   });
 
@@ -437,15 +476,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== Agent Marketplace Routes =====
 
-  // Get all available agents from marketplace
-  app.get("/api/agents/marketplace", requireAuth, async (_req: AuthRequest, res) => {
+  // Agent marketplace endpoints
+  app.get("/api/agents/marketplace", requireAuth, async (req, res) => {
     try {
-      const agents = await storage.getAllAgentCatalog();
+      const agents = await db.select().from(agentCatalog);
       res.json(agents);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to fetch marketplace agents" });
+      res.status(500).json({ message: error.message });
     }
   });
+
+  app.post("/api/agents/:agentId/activate", requireAuth, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const { config } = req.body;
+      const orgId = req.user!.orgId;
+
+      // Check if already activated
+      const existing = await db
+        .select()
+        .from(agentSubscriptions)
+        .where(
+          and(
+            eq(agentSubscriptions.agentId, agentId),
+            eq(agentSubscriptions.orgId, orgId)
+          )
+        );
+
+      if (existing.length > 0) {
+        return res.status(400).json({ message: "Agent already activated" });
+      }
+
+      // Activate agent
+      const [subscription] = await db
+        .insert(agentSubscriptions)
+        .values({
+          agentId,
+          orgId,
+          config: config || {},
+          isActive: true,
+        })
+        .returning();
+
+      res.json(subscription);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/agents/:agentId/deactivate", requireAuth, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const orgId = req.user!.orgId;
+
+      await db
+        .delete(agentSubscriptions)
+        .where(
+          and(
+            eq(agentSubscriptions.agentId, agentId),
+            eq(agentSubscriptions.orgId, orgId)
+          )
+        );
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/agents/active", requireAuth, async (req, res) => {
+    try {
+      const orgId = req.user!.orgId;
+
+      const activeAgents = await db
+        .select({
+          agent: agentCatalog,
+          subscription: agentSubscriptions,
+        })
+        .from(agentSubscriptions)
+        .innerJoin(agentCatalog, eq(agentSubscriptions.agentId, agentCatalog.id))
+        .where(
+          and(
+            eq(agentSubscriptions.orgId, orgId),
+            eq(agentSubscriptions.isActive, true)
+          )
+        );
+
+      res.json(activeAgents);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
 
   // Get all active agents for organization
   app.get("/api/agents/active", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
@@ -493,6 +615,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== Module Routes (Python Agents) =====
+
+  // Python agent endpoints
+  app.post("/api/modules/execute", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { inputData, taskId } = req.body;
+
+      const module = await storage.getModule(id, req.user!.orgId);
+      if (!module) {
+        return res.status(404).json({ message: "Module not found" });
+      }
+
+      if (module.status !== "active") {
+        return res.status(400).json({ message: "Module is not active" });
+      }
+
+      // Get organization's API key for Python service
+      const apiKeys = await storage.getAllApiKeys(req.user!.orgId);
+      if (!apiKeys.length) {
+        return res.status(400).json({
+          message: "No API key configured. Please create an API key first."
+        });
+      }
+
+      // Create module execution record
+      const execution = await storage.createModuleExecution({
+        moduleId: id,
+        taskId: taskId || null,
+        input: JSON.stringify(inputData),
+        status: "pending",
+        orgId: req.user!.orgId,
+      });
+
+      // Call Python agent service
+      try {
+        const client = new PythonAgentClient(apiKeys[0].key);
+
+        await storage.updateModuleExecution(
+          execution.id,
+          req.user!.orgId,
+          "running"
+        );
+
+        const result = await client.executeModule(
+          module.pythonModule,
+          req.user!.orgId,
+          inputData,
+          taskId
+        );
+
+        await storage.updateModuleExecution(
+          execution.id,
+          req.user!.orgId,
+          result.status === "completed" ? "completed" : "failed",
+          result.output ? JSON.stringify(result.output) : undefined,
+          result.error
+        );
+
+        res.json({
+          executionId: execution.id,
+          ...result,
+        });
+      } catch (error: any) {
+        await storage.updateModuleExecution(
+          execution.id,
+          req.user!.orgId,
+          "failed",
+          undefined,
+          error.message
+        );
+
+        throw error;
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to execute module" });
+    }
+  });
+
 
   // Get all modules
   app.get("/api/modules", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
@@ -560,83 +760,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Module deleted successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to delete module" });
-    }
-  });
-
-  // Execute a module (calls Python service)
-  app.post("/api/modules/:id/execute", requireAuth, async (req: AuthRequest, res) => {
-    try {
-      const { id } = req.params;
-      const { inputData, taskId } = req.body;
-
-      const module = await storage.getModule(id, req.user!.orgId);
-      if (!module) {
-        return res.status(404).json({ message: "Module not found" });
-      }
-
-      if (module.status !== "active") {
-        return res.status(400).json({ message: "Module is not active" });
-      }
-
-      // Get organization's API key for Python service
-      const apiKeys = await storage.getAllApiKeys(req.user!.orgId);
-      if (!apiKeys.length) {
-        return res.status(400).json({ 
-          message: "No API key configured. Please create an API key first." 
-        });
-      }
-
-      // Create module execution record
-      const execution = await storage.createModuleExecution({
-        moduleId: id,
-        taskId: taskId || null,
-        input: JSON.stringify(inputData),
-        status: "pending",
-        orgId: req.user!.orgId,
-      });
-
-      // Call Python agent service
-      try {
-        const client = new PythonAgentClient(apiKeys[0].key);
-
-        await storage.updateModuleExecution(
-          execution.id,
-          req.user!.orgId,
-          "running"
-        );
-
-        const result = await client.executeModule(
-          module.pythonModule,
-          req.user!.orgId,
-          inputData,
-          taskId
-        );
-
-        await storage.updateModuleExecution(
-          execution.id,
-          req.user!.orgId,
-          result.status === "completed" ? "completed" : "failed",
-          result.output ? JSON.stringify(result.output) : undefined,
-          result.error
-        );
-
-        res.json({
-          executionId: execution.id,
-          ...result,
-        });
-      } catch (error: any) {
-        await storage.updateModuleExecution(
-          execution.id,
-          req.user!.orgId,
-          "failed",
-          undefined,
-          error.message
-        );
-
-        throw error;
-      }
-    } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to execute module" });
     }
   });
 
@@ -709,9 +832,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const apiKeys = await storage.getAllApiKeys(req.user!.orgId);
 
       if (!apiKeys.length) {
-        return res.json({ 
+        return res.json({
           status: "unavailable",
-          message: "No API key configured" 
+          message: "No API key configured"
         });
       }
 
@@ -719,9 +842,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const health = await client.healthCheck();
       res.json(health);
     } catch (error: any) {
-      res.status(500).json({ 
-        status: "unhealthy", 
-        error: error.message 
+      res.status(500).json({
+        status: "unhealthy",
+        error: error.message
       });
     }
   });
@@ -1154,7 +1277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.json({ 
+      res.json({
         message: "Agent catalog seeded successfully",
         created,
         skipped,
