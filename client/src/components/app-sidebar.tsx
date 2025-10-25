@@ -61,6 +61,11 @@ const menuItems = [
     icon: Package,
   },
   {
+    title: "Execution History",
+    url: "/execution-history",
+    icon: CheckCircle,
+  },
+  {
     title: "Settings",
     url: "/settings",
     icon: Settings,

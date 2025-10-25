@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,9 +16,14 @@ import {
   Loader2,
   Activity,
   ShoppingBag,
+  Eye,
+  History
 } from "lucide-react";
 import type { AgentCatalog, AgentSubscription, ModuleExecution } from "@shared/schema";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AgentTestInterface } from "@/components/agent-test-interface";
+import { AgentConfigModal } from "@/components/agent-config-modal";
 
 type ActiveAgentWithDetails = {
   subscription: AgentSubscription;
@@ -33,6 +39,10 @@ type ActiveAgentWithDetails = {
 
 export default function Modules() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const [selectedAgent, setSelectedAgent] = useState<AgentCatalog | null>(null);
+  const [configAgent, setConfigAgent] = useState<AgentCatalog | null>(null);
+
 
   const { data: subscriptions = [], isLoading: isLoadingSubscriptions } = useQuery<AgentSubscription[]>({
     queryKey: ["/api/agents"],
@@ -51,7 +61,7 @@ export default function Modules() {
     .map((sub) => {
       const agent = catalog.find((a) => a.id === sub.agentId);
       if (!agent) return null;
-      
+
       const agentExecutions = executions.filter((e) => {
         return e.moduleId === sub.id || e.moduleId === sub.agentId;
       });
@@ -262,19 +272,45 @@ export default function Modules() {
               </CardContent>
 
               <CardFooter className="gap-2 pt-4 border-t flex-wrap">
-                <Button size="sm" variant="default" className="flex-1" data-testid={`button-run-${agent.id}`}>
+                <Button size="sm" variant="default" className="flex-1" data-testid={`button-run-${agent.id}`} onClick={() => setSelectedAgent(agent)}>
                   <Play className="w-3 h-3 mr-1" />
                   Run
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1" data-testid={`button-configure-${agent.id}`}>
+                <Button size="sm" variant="outline" className="flex-1" data-testid={`button-configure-${agent.id}`} onClick={() => setConfigAgent(agent)}>
                   <Settings className="w-3 h-3 mr-1" />
                   Configure
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1" data-testid={`button-history-${agent.id}`} onClick={() => setLocation(`/executions/${subscription.id}`)}>
+                  <History className="w-3 h-3 mr-1" />
+                  History
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1" data-testid={`button-test-${agent.id}`} onClick={() => setSelectedAgent(agent)}>
+                  <Eye className="w-3 h-3 mr-1" />
+                  Test
                 </Button>
               </CardFooter>
             </Card>
           );
         })}
       </div>
+
+      <Dialog open={!!selectedAgent} onOpenChange={(open) => !open && setSelectedAgent(null)}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Test Agent: {selectedAgent?.name}</DialogTitle>
+          </DialogHeader>
+          {selectedAgent && <AgentTestInterface agentId={selectedAgent.id} />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!configAgent} onOpenChange={(open) => !open && setConfigAgent(null)}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Configure Agent: {configAgent?.name}</DialogTitle>
+          </DialogHeader>
+          {configAgent && <AgentConfigModal agentId={configAgent.id} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

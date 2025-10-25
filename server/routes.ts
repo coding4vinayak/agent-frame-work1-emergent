@@ -668,6 +668,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get module configuration
+  app.get("/api/modules/:id/config", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const module = await storage.getModule(id, req.user!.orgId);
+      
+      if (!module) {
+        return res.status(404).json({ message: "Module not found" });
+      }
+
+      const config = module.userConfig ? JSON.parse(module.userConfig) : {};
+      res.json({ config });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch configuration" });
+    }
+  });
+
+  // Update module configuration
+  app.put("/api/modules/:id/config", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { config } = req.body;
+
+      const module = await storage.getModule(id, req.user!.orgId);
+      if (!module) {
+        return res.status(404).json({ message: "Module not found" });
+      }
+
+      await storage.updateModuleConfig(id, req.user!.orgId, JSON.stringify(config));
+      res.json({ message: "Configuration updated successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update configuration" });
+    }
+  });
+
   // Health check for Python service
   app.get("/api/python-agent/health", requireAuth, async (req: AuthRequest, res) => {
     try {

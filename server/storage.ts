@@ -111,6 +111,7 @@ export interface IStorage {
     status: "active" | "inactive" | "error"
   ): Promise<void>;
   deleteModule(id: string, orgId: string): Promise<void>;
+  updateModuleConfig(id: string, orgId: string, userConfig: string): Promise<void>;
 
   // Module Executions
   getAllModuleExecutions(orgId: string, limit?: number): Promise<ModuleExecution[]>;
@@ -393,6 +394,16 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(modules.id, id), eq(modules.orgId, orgId)));
   }
 
+  async updateModuleConfig(
+    id: string,
+    orgId: string,
+    userConfig: string
+  ): Promise<void> {
+    await db.update(modules).set({ userConfig, updatedAt: new Date() }).where(
+      and(eq(modules.id, id), eq(modules.orgId, orgId))
+    );
+  }
+
   // Module Executions
   async getAllModuleExecutions(orgId: string, limit = 100): Promise<ModuleExecution[]> {
     return await db
@@ -414,14 +425,17 @@ export class DatabaseStorage implements IStorage {
   async getModuleExecutionsByModule(
     moduleId: string,
     orgId: string,
-    limit = 50
+    limit?: number
   ): Promise<ModuleExecution[]> {
-    return await db
-      .select()
-      .from(moduleExecutions)
-      .where(and(eq(moduleExecutions.moduleId, moduleId), eq(moduleExecutions.orgId, orgId)))
-      .orderBy(desc(moduleExecutions.startedAt))
-      .limit(limit);
+    const query = limit
+      ? sql`SELECT * FROM module_executions 
+            WHERE module_id = ${moduleId} AND org_id = ${orgId} 
+            ORDER BY created_at DESC LIMIT ${limit}`
+      : sql`SELECT * FROM module_executions 
+            WHERE module_id = ${moduleId} AND org_id = ${orgId} 
+            ORDER BY created_at DESC`;
+    const result = await db.execute(query);
+    return result.rows as ModuleExecution[];
   }
 
   async createModuleExecution(execution: InsertModuleExecution): Promise<ModuleExecution> {

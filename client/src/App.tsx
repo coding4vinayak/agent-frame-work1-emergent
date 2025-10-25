@@ -21,7 +21,7 @@ import Reports from "@/pages/reports";
 import Agents from "@/pages/agents";
 import AgentShop from "@/pages/agent-shop";
 import Modules from "@/pages/modules";
-import Settings from "@/pages/settings";
+import ExecutionHistory from "@/pages/execution-history";
 import NotFound from "@/pages/not-found";
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -114,9 +114,9 @@ function Router() {
           <Modules />
         </DashboardLayout>
       </Route>
-      <Route path="/settings">
+      <Route path="/execution-history">
         <DashboardLayout>
-          <Settings />
+          <ExecutionHistory />
         </DashboardLayout>
       </Route>
 
