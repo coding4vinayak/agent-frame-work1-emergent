@@ -435,6 +435,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== Agent Marketplace Routes =====
+
+  // Get all available agents from marketplace
+  app.get("/api/agents/marketplace", requireAuth, async (_req: AuthRequest, res) => {
+    try {
+      const agents = await storage.getAllAgentCatalog();
+      res.json(agents);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch marketplace agents" });
+    }
+  });
+
+  // Get all active agents for organization
+  app.get("/api/agents/active", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+    try {
+      const subscriptions = await storage.getAllAgentSubscriptions(req.user!.orgId);
+      
+      const activeAgents = await Promise.all(
+        subscriptions.map(async (sub) => {
+          const catalogAgent = await storage.getAgentCatalog(sub.agentId);
+          return catalogAgent;
+        })
+      );
+      
+      res.json(activeAgents.filter(Boolean));
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch active agents" });
+    }
+  });
+
+  // Activate an agent by ID (URL parameter version)
+  app.post("/api/agents/:id/activate", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { id: agentId } = req.params;
+      
+      const catalogAgent = await storage.getAgentCatalog(agentId);
+      if (!catalogAgent) {
+        return res.status(404).json({ message: "Agent not found in catalog" });
+      }
+
+      const existing = await storage.getAgentSubscriptionByAgentId(agentId, req.user!.orgId);
+      if (existing) {
+        return res.status(400).json({ message: "Agent already activated" });
+      }
+
+      const subscription = await storage.createAgentSubscription({
+        orgId: req.user!.orgId,
+        agentId,
+        status: "active",
+      });
+
+      res.json({ message: "Agent activated successfully", subscription });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Failed to activate agent" });
+    }
+  });
+
   // ===== Module Routes (Python Agents) =====
 
   // Get all modules
@@ -684,6 +741,170 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(integrations);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to fetch integrations" });
+    }
+  });
+
+  // ===== Database Seed Route (Development Only) =====
+
+  // Seed the agent catalog with sample agents
+  app.post("/api/seed/agents", requireAuth, requireRole("super_admin"), async (_req: AuthRequest, res) => {
+    try {
+      const sampleAgents = [
+        {
+          id: "lead-scoring-ai",
+          name: "Lead Scoring AI",
+          type: "ml-classifier",
+          description: "Automatically score and prioritize leads based on behavior, demographics, and engagement patterns",
+          longDescription: "Our Lead Scoring AI uses machine learning to analyze multiple data points including email engagement, website visits, company size, and industry to assign a score to each lead. This helps your sales team focus on the most promising opportunities.\n\nFeatures:\n- Real-time scoring updates\n- Customizable scoring criteria\n- Integration with CRM systems\n- Historical trend analysis",
+          icon: "🎯",
+          category: "lead-generation",
+          backendEndpoint: "/api/ml/lead-scoring",
+          configSchema: JSON.stringify({
+            weights: {
+              demographic: 0.3,
+              behavioral: 0.5,
+              engagement: 0.2
+            },
+            threshold: 70
+          }),
+          price: 0,
+          isActive: true,
+        },
+        {
+          id: "nlp-sentiment",
+          name: "Sentiment Analysis",
+          type: "nlp",
+          description: "Analyze customer feedback, reviews, and communications for sentiment and key insights",
+          longDescription: "Understand how your customers feel about your products and services with advanced NLP. This agent processes text from various sources including emails, chat messages, and reviews to extract sentiment scores and identify key themes.\n\nCapabilities:\n- Multi-language support\n- Entity extraction\n- Emotion detection\n- Summary generation",
+          icon: "💬",
+          category: "analytics",
+          backendEndpoint: "/api/nlp/sentiment",
+          configSchema: JSON.stringify({
+            languages: ["en", "es", "fr"],
+            minConfidence: 0.7
+          }),
+          price: 0,
+          isActive: true,
+        },
+        {
+          id: "sales-forecaster",
+          name: "Sales Forecaster",
+          type: "time-series",
+          description: "Predict future sales trends based on historical data and market conditions",
+          longDescription: "Make data-driven decisions with accurate sales forecasts. This agent analyzes historical sales patterns, seasonality, and market trends to predict future performance.\n\nKey features:\n- Multiple forecasting models\n- Confidence intervals\n- Scenario planning\n- Automated reports",
+          icon: "📈",
+          category: "forecasting",
+          backendEndpoint: "/api/forecast/sales",
+          configSchema: JSON.stringify({
+            forecastHorizon: 90,
+            seasonalityPeriod: 7
+          }),
+          price: 49,
+          isActive: true,
+        },
+        {
+          id: "email-automation",
+          name: "Email Campaign Optimizer",
+          type: "automation",
+          description: "Optimize email campaigns with AI-powered send time, subject line, and content recommendations",
+          longDescription: "Maximize email engagement with intelligent automation. This agent analyzes past campaign performance to suggest optimal send times, compelling subject lines, and personalized content variations.\n\nBenefits:\n- Increased open rates\n- Better click-through rates\n- A/B testing automation\n- Personalization at scale",
+          icon: "📧",
+          category: "communication",
+          backendEndpoint: "/api/automation/email",
+          configSchema: JSON.stringify({
+            maxVariants: 5,
+            testDuration: 24
+          }),
+          price: 29,
+          isActive: true,
+        },
+        {
+          id: "data-cleaner",
+          name: "Data Quality Agent",
+          type: "data-processing",
+          description: "Automatically detect and fix data quality issues in your CRM and databases",
+          longDescription: "Maintain pristine data quality with automated cleaning and validation. This agent identifies duplicates, standardizes formats, validates fields, and enriches missing information.\n\nFeatures:\n- Duplicate detection and merging\n- Format standardization\n- Missing data enrichment\n- Quality scoring",
+          icon: "🧹",
+          category: "data-processing",
+          backendEndpoint: "/api/data/clean",
+          configSchema: JSON.stringify({
+            dedupeThreshold: 0.9,
+            autoFix: false
+          }),
+          price: 0,
+          isActive: true,
+        },
+        {
+          id: "customer-churn",
+          name: "Churn Prediction",
+          type: "ml-classifier",
+          description: "Identify customers at risk of churning before they leave",
+          longDescription: "Retain more customers by identifying churn risk early. This agent analyzes usage patterns, support interactions, and engagement metrics to flag accounts that may be at risk.\n\nPrevention strategies:\n- Early warning alerts\n- Risk scoring\n- Recommended interventions\n- Success tracking",
+          icon: "⚠️",
+          category: "analytics",
+          backendEndpoint: "/api/ml/churn",
+          configSchema: JSON.stringify({
+            riskThreshold: 0.7,
+            lookbackDays: 90
+          }),
+          price: 99,
+          isActive: true,
+        },
+        {
+          id: "social-monitor",
+          name: "Social Media Monitor",
+          type: "monitoring",
+          description: "Track brand mentions, sentiment, and engagement across social media platforms",
+          longDescription: "Stay on top of your social media presence with real-time monitoring. This agent tracks mentions of your brand, products, and competitors across major social platforms.\n\nMonitoring includes:\n- Brand mentions\n- Sentiment tracking\n- Competitor analysis\n- Influencer identification",
+          icon: "📱",
+          category: "communication",
+          backendEndpoint: "/api/social/monitor",
+          configSchema: JSON.stringify({
+            platforms: ["twitter", "linkedin", "facebook"],
+            updateFrequency: 300
+          }),
+          price: 79,
+          isActive: true,
+        },
+        {
+          id: "task-automator",
+          name: "Task Automation Engine",
+          type: "automation",
+          description: "Automate repetitive tasks and workflows across your organization",
+          longDescription: "Free up time for high-value work by automating routine tasks. This agent can handle data entry, status updates, notifications, and complex multi-step workflows.\n\nAutomation types:\n- Scheduled tasks\n- Event-triggered workflows\n- Conditional logic\n- Multi-system integration",
+          icon: "🤖",
+          category: "automation",
+          backendEndpoint: "/api/automation/tasks",
+          configSchema: JSON.stringify({
+            maxConcurrent: 10,
+            retryAttempts: 3
+          }),
+          price: 0,
+          isActive: true,
+        },
+      ];
+
+      let created = 0;
+      let skipped = 0;
+
+      for (const agent of sampleAgents) {
+        const existing = await storage.getAgentCatalog(agent.id);
+        if (!existing) {
+          await storage.createAgentCatalog(agent);
+          created++;
+        } else {
+          skipped++;
+        }
+      }
+
+      res.json({ 
+        message: "Agent catalog seeded successfully",
+        created,
+        skipped,
+        total: sampleAgents.length
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to seed agent catalog" });
     }
   });
 
