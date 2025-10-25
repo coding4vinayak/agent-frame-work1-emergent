@@ -58,6 +58,8 @@ export interface IStorage {
   getAllAgentCatalog(): Promise<AgentCatalog[]>;
   getAgentCatalog(id: string): Promise<AgentCatalog | undefined>;
   createAgentCatalog(agent: InsertAgentCatalog): Promise<AgentCatalog>;
+  updateAgentCatalog(id: string, updates: Partial<typeof agentCatalog.$inferInsert>): Promise<void>;
+  deleteAgentCatalog(id: string): Promise<void>;
 
   // Agent Subscriptions (Which agents each org has activated)
   getAllAgentSubscriptions(orgId: string): Promise<AgentSubscription[]>;
@@ -186,8 +188,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAgentCatalog(id: string): Promise<AgentCatalog | undefined> {
-    const [agent] = await db.select().from(agentCatalog).where(eq(agentCatalog.id, id));
-    return agent || undefined;
+    const [agent] = await db
+      .select()
+      .from(agentCatalog)
+      .where(eq(agentCatalog.id, id))
+      .limit(1);
+    return agent;
+  }
+
+  async updateAgentCatalog(id: string, updates: Partial<typeof agentCatalog.$inferInsert>) {
+    await db
+      .update(agentCatalog)
+      .set(updates)
+      .where(eq(agentCatalog.id, id));
+  }
+
+  async deleteAgentCatalog(id: string) {
+    await db
+      .delete(agentCatalog)
+      .where(eq(agentCatalog.id, id));
   }
 
   async createAgentCatalog(agent: InsertAgentCatalog): Promise<AgentCatalog> {

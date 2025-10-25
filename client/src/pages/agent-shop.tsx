@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, CheckCircle, Store } from "lucide-react";
+import { Search, CheckCircle, Store, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { AgentCatalog } from "@shared/schema";
+import { AgentRegistrationForm } from "@/components/agent-registration-form";
 
 const CATEGORY_OPTIONS = [
   { value: "all", label: "All Categories" },
@@ -27,6 +28,7 @@ export default function AgentShop() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedAgent, setSelectedAgent] = useState<AgentCatalog | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
 
   const { data: marketplace = [], isLoading: isLoadingMarketplace } = useQuery<AgentCatalog[]>({
     queryKey: ["/api/agents/marketplace"],
@@ -85,9 +87,15 @@ export default function AgentShop() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Store className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold">Agent Marketplace</h1>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <Store className="w-8 h-8 text-primary" />
+            <h1 className="text-3xl font-bold">Agent Marketplace</h1>
+          </div>
+          <Button onClick={() => setIsRegistrationModalOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Register Agent
+          </Button>
         </div>
         <p className="text-muted-foreground">
           Browse and activate AI agents to enhance your organization's capabilities
@@ -190,6 +198,11 @@ export default function AgentShop() {
           })}
         </div>
       )}
+
+      <AgentRegistrationForm
+        isOpen={isRegistrationModalOpen}
+        onClose={() => setIsRegistrationModalOpen(false)}
+      />
 
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
