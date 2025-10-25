@@ -360,32 +360,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== Agent Routes =====
+  // ===== Agent Catalog & Subscription Routes =====
 
-  // Get all agents
-  app.get("/api/agents", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
+  // Get all available agents from catalog (marketplace)
+  app.get("/api/agent-catalog", requireAuth, async (_req: AuthRequest, res) => {
     try {
-      const agents = await storage.getAllAgents(req.user!.orgId);
+      const agents = await storage.getAllAgentCatalog();
       res.json(agents);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to fetch agents" });
+      res.status(500).json({ message: error.message || "Failed to fetch agent catalog" });
     }
   });
 
-  // Run agent (placeholder)
-  app.post("/api/agents/:id/run", requireAuth, async (req: AuthRequest, res) => {
+  // Get all agents that the organization has activated
+  app.get("/api/agents", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
     try {
-      const { id } = req.params;
-      const agent = await storage.getAgent(id, req.user!.orgId);
+      const subscriptions = await storage.getAllAgentSubscriptions(req.user!.orgId);
       
-      if (!agent) {
-        return res.status(404).json({ message: "Agent not found" });
+      const agentsWithDetails = await Promise.all(
+        subscriptions.map(async (sub) => {
+          const catalogAgent = await storage.getAgentCatalog(sub.agentId);
+          return {
+            ...sub,
+            agent: catalogAgent,
+          };
+        })
+      );
+      
+      res.json(agentsWithDetails);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to fetch activated agents" });
+    }
+  });
+
+  // Activate an agent for the organization
+  app.post("/api/agents/activate", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { agentId } = req.body;
+      
+      if (!agentId || typeof agentId !== "string") {
+        return res.status(400).json({ message: "agentId is required and must be a string" });
+      }
+      
+      const catalogAgent = await storage.getAgentCatalog(agentId);
+      if (!catalogAgent) {
+        return res.status(404).json({ message: "Agent not found in catalog" });
       }
 
-      // Placeholder for agent execution
-      res.json({ message: "Agent execution started", agentId: id });
+      const existing = await storage.getAgentSubscriptionByAgentId(agentId, req.user!.orgId);
+      if (existing) {
+        return res.status(400).json({ message: "Agent already activated" });
+      }
+
+      const subscription = await storage.createAgentSubscription({
+        orgId: req.user!.orgId,
+        agentId,
+        status: "active",
+      });
+
+      res.json({ message: "Agent activated successfully", subscription });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to run agent" });
+      res.status(400).json({ message: error.message || "Failed to activate agent" });
+    }
+  });
+
+  // Deactivate an agent for the organization
+  app.delete("/api/agents/:subscriptionId", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { subscriptionId } = req.params;
+      await storage.deleteAgentSubscription(subscriptionId, req.user!.orgId);
+      res.json({ message: "Agent deactivated successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to deactivate agent" });
     }
   });
 

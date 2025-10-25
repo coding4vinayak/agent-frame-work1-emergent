@@ -2,7 +2,9 @@
 import {
   users,
   organizations,
-  agents,
+  agentCatalog,
+  agentSubscriptions,
+  agentData,
   tasks,
   logs,
   integrations,
@@ -14,8 +16,12 @@ import {
   type InsertUser,
   type Organization,
   type InsertOrganization,
-  type Agent,
-  type InsertAgent,
+  type AgentCatalog,
+  type InsertAgentCatalog,
+  type AgentSubscription,
+  type InsertAgentSubscription,
+  type AgentData,
+  type InsertAgentData,
   type Task,
   type InsertTask,
   type Log,
@@ -48,10 +54,24 @@ export interface IStorage {
   getOrganization(id: string): Promise<Organization | undefined>;
   createOrganization(org: InsertOrganization): Promise<Organization>;
 
-  // Agents
-  getAllAgents(orgId: string): Promise<Agent[]>;
-  getAgent(id: string, orgId: string): Promise<Agent | undefined>;
-  createAgent(agent: InsertAgent): Promise<Agent>;
+  // Agent Catalog
+  getAllAgentCatalog(): Promise<AgentCatalog[]>;
+  getAgentCatalog(id: string): Promise<AgentCatalog | undefined>;
+  createAgentCatalog(agent: InsertAgentCatalog): Promise<AgentCatalog>;
+
+  // Agent Subscriptions (Which agents each org has activated)
+  getAllAgentSubscriptions(orgId: string): Promise<AgentSubscription[]>;
+  getAgentSubscription(id: string, orgId: string): Promise<AgentSubscription | undefined>;
+  getAgentSubscriptionByAgentId(agentId: string, orgId: string): Promise<AgentSubscription | undefined>;
+  createAgentSubscription(subscription: InsertAgentSubscription): Promise<AgentSubscription>;
+  updateAgentSubscriptionStatus(id: string, orgId: string, status: "active" | "inactive" | "error"): Promise<void>;
+  deleteAgentSubscription(id: string, orgId: string): Promise<void>;
+
+  // Agent Data (Store agent-specific data)
+  getAllAgentData(subscriptionId: string, orgId: string): Promise<AgentData[]>;
+  getAgentData(id: string, orgId: string): Promise<AgentData | undefined>;
+  createAgentData(data: InsertAgentData): Promise<AgentData>;
+  updateAgentData(id: string, orgId: string, data: string): Promise<void>;
 
   // Tasks
   getAllTasks(orgId: string): Promise<Task[]>;
@@ -159,19 +179,80 @@ export class DatabaseStorage implements IStorage {
     return organization;
   }
 
-  // Agents
-  async getAllAgents(orgId: string): Promise<Agent[]> {
-    return await db.select().from(agents).where(eq(agents.orgId, orgId));
+  // Agent Catalog
+  async getAllAgentCatalog(): Promise<AgentCatalog[]> {
+    return await db.select().from(agentCatalog).where(eq(agentCatalog.isActive, true));
   }
 
-  async getAgent(id: string, orgId: string): Promise<Agent | undefined> {
-    const [agent] = await db.select().from(agents).where(and(eq(agents.id, id), eq(agents.orgId, orgId)));
+  async getAgentCatalog(id: string): Promise<AgentCatalog | undefined> {
+    const [agent] = await db.select().from(agentCatalog).where(eq(agentCatalog.id, id));
     return agent || undefined;
   }
 
-  async createAgent(agent: InsertAgent): Promise<Agent> {
-    const [newAgent] = await db.insert(agents).values(agent).returning();
+  async createAgentCatalog(agent: InsertAgentCatalog): Promise<AgentCatalog> {
+    const [newAgent] = await db.insert(agentCatalog).values(agent).returning();
     return newAgent;
+  }
+
+  // Agent Subscriptions
+  async getAllAgentSubscriptions(orgId: string): Promise<AgentSubscription[]> {
+    return await db.select().from(agentSubscriptions).where(eq(agentSubscriptions.orgId, orgId));
+  }
+
+  async getAgentSubscription(id: string, orgId: string): Promise<AgentSubscription | undefined> {
+    const [subscription] = await db.select().from(agentSubscriptions).where(
+      and(eq(agentSubscriptions.id, id), eq(agentSubscriptions.orgId, orgId))
+    );
+    return subscription || undefined;
+  }
+
+  async getAgentSubscriptionByAgentId(agentId: string, orgId: string): Promise<AgentSubscription | undefined> {
+    const [subscription] = await db.select().from(agentSubscriptions).where(
+      and(eq(agentSubscriptions.agentId, agentId), eq(agentSubscriptions.orgId, orgId))
+    );
+    return subscription || undefined;
+  }
+
+  async createAgentSubscription(subscription: InsertAgentSubscription): Promise<AgentSubscription> {
+    const [newSubscription] = await db.insert(agentSubscriptions).values(subscription).returning();
+    return newSubscription;
+  }
+
+  async updateAgentSubscriptionStatus(id: string, orgId: string, status: "active" | "inactive" | "error"): Promise<void> {
+    await db.update(agentSubscriptions).set({ status, lastUsedAt: new Date() }).where(
+      and(eq(agentSubscriptions.id, id), eq(agentSubscriptions.orgId, orgId))
+    );
+  }
+
+  async deleteAgentSubscription(id: string, orgId: string): Promise<void> {
+    await db.delete(agentSubscriptions).where(
+      and(eq(agentSubscriptions.id, id), eq(agentSubscriptions.orgId, orgId))
+    );
+  }
+
+  // Agent Data
+  async getAllAgentData(subscriptionId: string, orgId: string): Promise<AgentData[]> {
+    return await db.select().from(agentData).where(
+      and(eq(agentData.subscriptionId, subscriptionId), eq(agentData.orgId, orgId))
+    );
+  }
+
+  async getAgentData(id: string, orgId: string): Promise<AgentData | undefined> {
+    const [data] = await db.select().from(agentData).where(
+      and(eq(agentData.id, id), eq(agentData.orgId, orgId))
+    );
+    return data || undefined;
+  }
+
+  async createAgentData(data: InsertAgentData): Promise<AgentData> {
+    const [newData] = await db.insert(agentData).values(data).returning();
+    return newData;
+  }
+
+  async updateAgentData(id: string, orgId: string, data: string): Promise<void> {
+    await db.update(agentData).set({ data, updatedAt: new Date() }).where(
+      and(eq(agentData.id, id), eq(agentData.orgId, orgId))
+    );
   }
 
   // Tasks

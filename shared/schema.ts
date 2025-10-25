@@ -30,21 +30,50 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Agents table (placeholder for future AI modules)
-export const agents = pgTable("agents", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+// Agent Catalog (Master list of all available agents)
+export const agentCatalog = pgTable("agent_catalog", {
+  id: varchar("id").primaryKey(),
   name: text("name").notNull(),
   type: text("type").notNull(),
-  description: text("description"),
-  status: agentStatusEnum("status").notNull().default("active"),
-  orgId: varchar("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  description: text("description").notNull(),
+  longDescription: text("long_description"),
+  icon: text("icon").notNull(),
+  category: text("category").notNull(),
+  backendEndpoint: text("backend_endpoint"),
+  configSchema: text("config_schema"),
+  price: integer("price").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Agent Subscriptions (Which agents each organization has activated)
+export const agentSubscriptions = pgTable("agent_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  agentId: varchar("agent_id").notNull().references(() => agentCatalog.id, { onDelete: "cascade" }),
+  status: agentStatusEnum("status").notNull().default("active"),
+  config: text("config"),
+  activatedAt: timestamp("activated_at").notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at"),
+});
+
+// Agent Data (Stores agent-specific data for each organization)
+export const agentData = pgTable("agent_data", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriptionId: varchar("subscription_id").notNull().references(() => agentSubscriptions.id, { onDelete: "cascade" }),
+  orgId: varchar("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  agentId: varchar("agent_id").notNull().references(() => agentCatalog.id, { onDelete: "cascade" }),
+  dataType: text("data_type").notNull(),
+  data: text("data").notNull(),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Tasks table
 export const tasks = pgTable("tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  agentId: varchar("agent_id").references(() => agents.id, { onDelete: "set null" }),
+  subscriptionId: varchar("subscription_id").references(() => agentSubscriptions.id, { onDelete: "set null" }),
   description: text("description").notNull(),
   status: taskStatusEnum("status").notNull().default("pending"),
   result: text("result"),
@@ -57,7 +86,7 @@ export const tasks = pgTable("tasks", {
 // Logs table
 export const logs = pgTable("logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  agentId: varchar("agent_id").references(() => agents.id, { onDelete: "set null" }),
+  subscriptionId: varchar("subscription_id").references(() => agentSubscriptions.id, { onDelete: "set null" }),
   userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
   orgId: varchar("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   message: text("message").notNull(),
@@ -126,7 +155,8 @@ export const moduleExecutions = pgTable("module_executions", {
 // Relations
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   users: many(users),
-  agents: many(agents),
+  agentSubscriptions: many(agentSubscriptions),
+  agentData: many(agentData),
   tasks: many(tasks),
   logs: many(logs),
   integrations: many(integrations),
@@ -146,13 +176,38 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   resourceUsage: many(resourceUsage),
 }));
 
-export const agentsRelations = relations(agents, ({ one, many }) => ({
+export const agentCatalogRelations = relations(agentCatalog, ({ many }) => ({
+  subscriptions: many(agentSubscriptions),
+  agentData: many(agentData),
+}));
+
+export const agentSubscriptionsRelations = relations(agentSubscriptions, ({ one, many }) => ({
   organization: one(organizations, {
-    fields: [agents.orgId],
+    fields: [agentSubscriptions.orgId],
     references: [organizations.id],
+  }),
+  agent: one(agentCatalog, {
+    fields: [agentSubscriptions.agentId],
+    references: [agentCatalog.id],
   }),
   tasks: many(tasks),
   logs: many(logs),
+  agentData: many(agentData),
+}));
+
+export const agentDataRelations = relations(agentData, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [agentData.orgId],
+    references: [organizations.id],
+  }),
+  agent: one(agentCatalog, {
+    fields: [agentData.agentId],
+    references: [agentCatalog.id],
+  }),
+  subscription: one(agentSubscriptions, {
+    fields: [agentData.subscriptionId],
+    references: [agentSubscriptions.id],
+  }),
 }));
 
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
@@ -164,9 +219,9 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
     fields: [tasks.userId],
     references: [users.id],
   }),
-  agent: one(agents, {
-    fields: [tasks.agentId],
-    references: [agents.id],
+  subscription: one(agentSubscriptions, {
+    fields: [tasks.subscriptionId],
+    references: [agentSubscriptions.id],
   }),
   moduleExecutions: many(moduleExecutions),
 }));
@@ -180,9 +235,9 @@ export const logsRelations = relations(logs, ({ one }) => ({
     fields: [logs.userId],
     references: [users.id],
   }),
-  agent: one(agents, {
-    fields: [logs.agentId],
-    references: [agents.id],
+  subscription: one(agentSubscriptions, {
+    fields: [logs.subscriptionId],
+    references: [agentSubscriptions.id],
   }),
 }));
 
@@ -246,9 +301,20 @@ export const insertUserSchema = createInsertSchema(users).omit({
   lastLogin: true,
 });
 
-export const insertAgentSchema = createInsertSchema(agents).omit({
+export const insertAgentCatalogSchema = createInsertSchema(agentCatalog).omit({
+  createdAt: true,
+});
+
+export const insertAgentSubscriptionSchema = createInsertSchema(agentSubscriptions).omit({
+  id: true,
+  activatedAt: true,
+  lastUsedAt: true,
+});
+
+export const insertAgentDataSchema = createInsertSchema(agentData).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 export const insertTaskSchema = createInsertSchema(tasks).omit({
@@ -315,8 +381,14 @@ export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
-export type Agent = typeof agents.$inferSelect;
-export type InsertAgent = z.infer<typeof insertAgentSchema>;
+export type AgentCatalog = typeof agentCatalog.$inferSelect;
+export type InsertAgentCatalog = z.infer<typeof insertAgentCatalogSchema>;
+
+export type AgentSubscription = typeof agentSubscriptions.$inferSelect;
+export type InsertAgentSubscription = z.infer<typeof insertAgentSubscriptionSchema>;
+
+export type AgentData = typeof agentData.$inferSelect;
+export type InsertAgentData = z.infer<typeof insertAgentDataSchema>;
 
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
