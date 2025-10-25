@@ -131,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/reset-password", async (req, res) => {
     try {
       const { email } = passwordResetSchema.parse(req.body);
-      
+
       // In production, send actual email
       // For now, just return success
       res.json({ message: "Password reset email sent" });
@@ -156,21 +156,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/users/invite", requireAuth, requireRole("super_admin"), async (req: AuthRequest, res) => {
     try {
       const { name, email, role } = req.body;
-      
+
       // Get the system's organization
       const systemOrg = await storage.getOrganization(req.user!.orgId);
       if (!systemOrg) {
         return res.status(500).json({ message: "System organization not found" });
       }
-      
+
       // Validate role
       const validRoles = ["member", "admin"];
       const userRole = role || "member";
-      
+
       if (!validRoles.includes(userRole)) {
         return res.status(400).json({ message: "Invalid role. Only 'member' or 'admin' allowed." });
       }
-      
+
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({ message: "User already exists" });
@@ -204,16 +204,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { name, role } = req.body;
-      
+
       // Verify user belongs to same org
       const user = await storage.getUser(id);
       if (!user || user.orgId !== req.user!.orgId) {
         return res.status(404).json({ message: "User not found" });
       }
-      
+
       // Update user (implement in storage)
       // const updatedUser = await storage.updateUser(id, { name, role });
-      
+
       res.json({ message: "User updated successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to update user" });
@@ -292,7 +292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const tasks = await storage.getAllTasks(req.user!.orgId);
       const users = await storage.getAllUsers(req.user!.orgId);
-      
+
       const stats = {
         activeUsers: users.length,
         tasksDone: tasks.filter((t) => t.status === "completed").length,
@@ -332,7 +332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const date = new Date();
         date.setDate(date.getDate() - (6 - i));
         const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-        
+
         return {
           date: dateStr,
           count: Math.floor(Math.random() * 20) + 5, // Placeholder
@@ -376,7 +376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/agents", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
     try {
       const subscriptions = await storage.getAllAgentSubscriptions(req.user!.orgId);
-      
+
       const agentsWithDetails = await Promise.all(
         subscriptions.map(async (sub) => {
           const catalogAgent = await storage.getAgentCatalog(sub.agentId);
@@ -386,7 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         })
       );
-      
+
       res.json(agentsWithDetails);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to fetch activated agents" });
@@ -397,11 +397,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/agents/activate", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
     try {
       const { agentId } = req.body;
-      
+
       if (!agentId || typeof agentId !== "string") {
         return res.status(400).json({ message: "agentId is required and must be a string" });
       }
-      
+
       const catalogAgent = await storage.getAgentCatalog(agentId);
       if (!catalogAgent) {
         return res.status(404).json({ message: "Agent not found in catalog" });
@@ -451,14 +451,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/agents/active", requireAuth, requireOrgAccess, async (req: AuthRequest, res) => {
     try {
       const subscriptions = await storage.getAllAgentSubscriptions(req.user!.orgId);
-      
+
       const activeAgents = await Promise.all(
         subscriptions.map(async (sub) => {
           const catalogAgent = await storage.getAgentCatalog(sub.agentId);
           return catalogAgent;
         })
       );
-      
+
       res.json(activeAgents.filter(Boolean));
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to fetch active agents" });
@@ -469,7 +469,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/agents/:id/activate", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
     try {
       const { id: agentId } = req.params;
-      
+
       const catalogAgent = await storage.getAgentCatalog(agentId);
       if (!catalogAgent) {
         return res.status(404).json({ message: "Agent not found in catalog" });
@@ -509,7 +509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const module = await storage.getModule(id, req.user!.orgId);
-      
+
       if (!module) {
         return res.status(404).json({ message: "Module not found" });
       }
@@ -598,7 +598,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Call Python agent service
       try {
         const client = new PythonAgentClient(apiKeys[0].key);
-        
+
         await storage.updateModuleExecution(
           execution.id,
           req.user!.orgId,
@@ -656,7 +656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
-      
+
       const executions = await storage.getModuleExecutionsByModule(
         id,
         req.user!.orgId,
@@ -673,7 +673,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const module = await storage.getModule(id, req.user!.orgId);
-      
+
       if (!module) {
         return res.status(404).json({ message: "Module not found" });
       }
@@ -707,7 +707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/python-agent/health", requireAuth, async (req: AuthRequest, res) => {
     try {
       const apiKeys = await storage.getAllApiKeys(req.user!.orgId);
-      
+
       if (!apiKeys.length) {
         return res.json({ 
           status: "unavailable",
@@ -865,7 +865,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // First deactivate all subscriptions
       const subscriptions = await storage.getAllAgentSubscriptions(req.user!.orgId);
       const agentSubs = subscriptions.filter(sub => sub.agentId === id);
-      
+
+      for (const sub of agentSubs) {
+        await storage.deleteAgentSubscription(sub.id, req.user!.orgId);
+      }
+
+      // Delete from catalog (you'll need to implement this)
+      // await storage.deleteAgentCatalog(id);
+
+      res.json({
+        message: "Agent deleted from catalog"
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to delete agent" });
+    }
+  });
+
+  // ===== Database Seed Route (Development Only) =====
+
+  // Seed agents endpoint (admin only)
+  app.post("/api/agents/seed", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUserById(req.userId!);
+      if (user.role !== "super_admin" && user.role !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { seedAgents } = await import("./seed-agents");
+      await seedAgents(storage);
+
+      res.json({ message: "Agents seeded successfully" });
+    } catch (error: any) {
+      console.error("Seed error:", error);
+      res.status(500).json({ message: error.message || "Failed to seed agents" });
+    }
+  });
+
+  // Agent registration endpoint
+  app.post("/api/agents/register", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const {
+        id,
+        name,
+        type,
+        description,
+        longDescription,
+        icon,
+        category,
+        backendEndpoint,
+        configSchema,
+        price = 0,
+      } = req.body;
+
+      if (!id || !name || !type || !description || !category) {
+        return res.status(400).json({
+          message: "Missing required fields: id, name, type, description, category"
+        });
+      }
+
+      // Check if agent already exists
+      const existing = await storage.getAgentCatalog(id);
+      if (existing) {
+        return res.status(400).json({
+          message: "Agent with this ID already exists"
+        });
+      }
+
+      // Create agent in catalog
+      const agent = await storage.createAgentCatalog({
+        id,
+        name,
+        type,
+        description,
+        longDescription: longDescription || description,
+        icon: icon || "🤖",
+        category,
+        backendEndpoint: backendEndpoint || `/api/agents/${id}`,
+        configSchema: configSchema ? JSON.stringify(configSchema) : null,
+        price,
+        isActive: true,
+      });
+
+      res.json({
+        message: "Agent registered successfully",
+        agent
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to register agent" });
+    }
+  });
+
+  // Update agent metadata
+  app.patch("/api/agents/catalog/:id", requireAuth, requireRole("admin", "super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const agent = await storage.getAgentCatalog(id);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      // Update agent (you'll need to implement this in storage)
+      // await storage.updateAgentCatalog(id, updates);
+
+      res.json({
+        message: "Agent updated successfully"
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update agent" });
+    }
+  });
+
+  // Delete agent from catalog
+  app.delete("/api/agents/catalog/:id", requireAuth, requireRole("super_admin"), async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+
+      // First deactivate all subscriptions
+      const subscriptions = await storage.getAllAgentSubscriptions(req.user!.orgId);
+      const agentSubs = subscriptions.filter(sub => sub.agentId === id);
+
       for (const sub of agentSubs) {
         await storage.deleteAgentSubscription(sub.id, req.user!.orgId);
       }

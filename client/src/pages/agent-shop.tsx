@@ -38,6 +38,26 @@ export default function AgentShop() {
     queryKey: ["/api/agents/active"],
   });
 
+  const seedMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/agents/seed", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/agents/marketplace"] });
+      toast({
+        title: "Agents Seeded",
+        description: "Default agents have been added to the marketplace.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Seeding Failed",
+        description: error.message || "Failed to seed agents.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const activateMutation = useMutation({
     mutationFn: async (agentId: string) => {
       return apiRequest("POST", `/api/agents/${agentId}/activate`, {});
@@ -92,10 +112,21 @@ export default function AgentShop() {
             <Store className="w-8 h-8 text-primary" />
             <h1 className="text-3xl font-bold">Agent Marketplace</h1>
           </div>
-          <Button onClick={() => setIsRegistrationModalOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Register Agent
-          </Button>
+          <div className="flex gap-2">
+            {marketplace.length === 0 && (
+              <Button 
+                variant="outline" 
+                onClick={() => seedMutation.mutate()}
+                disabled={seedMutation.isPending}
+              >
+                {seedMutation.isPending ? "Seeding..." : "Seed Default Agents"}
+              </Button>
+            )}
+            <Button onClick={() => setIsRegistrationModalOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Register Agent
+            </Button>
+          </div>
         </div>
         <p className="text-muted-foreground">
           Browse and activate AI agents to enhance your organization's capabilities

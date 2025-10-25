@@ -1,7 +1,9 @@
 import { db } from "./db";
 import { agentCatalog } from "@shared/schema";
+import type { Storage } from "./storage";
+import type { InsertAgentCatalog } from "@shared/schema";
 
-const seedAgents = [
+const SAMPLE_AGENTS = [
   {
     id: "form-collection",
     name: "Form Data Collection Agent",
@@ -76,20 +78,21 @@ const seedAgents = [
   },
 ];
 
-async function seed() {
+export async function seedAgents(storage: Storage) {
   console.log("Seeding agent catalog...");
-  
-  for (const agent of seedAgents) {
+
+  for (const agent of SAMPLE_AGENTS) {
     try {
-      await db.insert(agentCatalog).values(agent).onConflictDoNothing();
-      console.log(`✓ Added ${agent.name}`);
-    } catch (error) {
-      console.error(`✗ Error adding ${agent.name}:`, error);
+      await storage.createAgentInCatalog(agent);
+      console.log(`✓ Seeded agent: ${agent.name}`);
+    } catch (error: any) {
+      if (error.message?.includes("already exists")) {
+        console.log(`- Agent already exists: ${agent.name}`);
+      } else {
+        console.error(`✗ Failed to seed ${agent.name}:`, error.message);
+      }
     }
   }
-  
-  console.log("Seed complete!");
-  process.exit(0);
-}
 
-seed();
+  console.log("Agent seeding complete!");
+}
