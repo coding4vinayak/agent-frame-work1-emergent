@@ -1,3 +1,4 @@
+
 # Abetworks - Modular AI Automation Platform
 
 A production-ready, modular AI automation platform built for intelligent workflow orchestration. The system provides comprehensive user management, task tracking, reporting, and a powerful Python-based agent system for AI/ML workloads.
@@ -20,6 +21,8 @@ A production-ready, modular AI automation platform built for intelligent workflo
 - Real-time execution tracking
 - Agent execution history and analytics
 - Custom module configuration
+- Agent testing interface
+- Live agent settings management
 
 ### Security Features
 - Password hashing with bcrypt
@@ -73,25 +76,26 @@ cd ..
 
 ### 2. Environment Setup
 
-Create a `.env` file in the root directory:
+**Create a `.env` file in the root directory:**
 
 ```env
-DATABASE_URL=your_postgresql_connection_string
-JWT_SECRET=your_secure_jwt_secret
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+JWT_SECRET=your_secure_jwt_secret_minimum_32_characters
 NODE_ENV=development
 PYTHON_AGENT_URL=http://0.0.0.0:8000
 PYTHON_API_KEY=your_secure_api_key
-OPENAI_API_KEY=sk-your-openai-api-key
 ```
 
-Create a `.env` file in the `python-agents` directory:
+**Create a `.env` file in the `python-agents` directory:**
 
 ```env
-DATABASE_URL=your_postgresql_connection_string
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
 NODE_API_URL=http://0.0.0.0:5000
 PYTHON_API_KEY=your_secure_api_key
 OPENAI_API_KEY=sk-your-openai-api-key
 ```
+
+**Important:** Use the same `DATABASE_URL` and `PYTHON_API_KEY` in both files.
 
 ### 3. Database Setup
 
@@ -129,7 +133,22 @@ abetworks/
 ├── client/                 # Frontend React application
 │   ├── src/
 │   │   ├── components/    # UI components (Shadcn)
+│   │   │   ├── agent-displays/  # Agent-specific visualizations
+│   │   │   ├── ui/              # Shadcn UI components
+│   │   │   ├── agent-config-modal.tsx
+│   │   │   ├── agent-status.tsx
+│   │   │   ├── agent-test-interface.tsx
+│   │   │   └── app-sidebar.tsx
 │   │   ├── pages/         # Application pages
+│   │   │   ├── dashboard.tsx
+│   │   │   ├── modules.tsx         # Active modules dashboard
+│   │   │   ├── execution-history.tsx
+│   │   │   ├── agent-shop.tsx
+│   │   │   ├── agents.tsx
+│   │   │   ├── tasks.tsx
+│   │   │   ├── users.tsx
+│   │   │   ├── reports.tsx
+│   │   │   └── settings.tsx
 │   │   ├── hooks/         # Custom React hooks
 │   │   ├── lib/           # Utilities and configurations
 │   │   └── App.tsx        # Main application component
@@ -147,9 +166,15 @@ abetworks/
 │   │   ├── nlp_agent.py  # NLP processing agent
 │   │   └── data_agent.py # Data transformation agent
 │   ├── main.py           # FastAPI server
+│   ├── .env              # Python environment variables
 │   └── requirements.txt  # Python dependencies
 ├── shared/
 │   └── schema.ts         # Shared TypeScript types & DB schema
+├── docs/                 # Documentation
+│   ├── API.md
+│   ├── SETUP.md
+│   ├── AGENT_DEVELOPMENT.md
+│   └── REMAINING_TASKS.md
 └── design_guidelines.md  # UI/UX design system
 ```
 
@@ -302,15 +327,59 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 4. **Frontend Pages**: Create new pages in `client/src/pages/`
 5. **UI Components**: Use Shadcn components from `client/src/components/ui/`
 
-## 📦 Deployment
+## 📦 Deployment on Replit
 
-The application is configured for deployment on Replit:
+### Step 1: Configure Secrets
 
-1. Ensure all environment variables are set in Replit Secrets
-2. Database should be accessible from production
-3. Both Node.js and Python services must run simultaneously
-4. Click the "Deploy" button in Replit
-5. Configure custom domain if needed
+In Replit Secrets, add the following environment variables:
+
+**Required Secrets:**
+1. `DATABASE_URL` - Your Neon PostgreSQL connection string
+2. `JWT_SECRET` - A secure random string (minimum 32 characters)
+3. `PYTHON_AGENT_URL` - `http://0.0.0.0:8000`
+4. `PYTHON_API_KEY` - Secure API key for Python service auth
+5. `OPENAI_API_KEY` - Your OpenAI API key (optional, for NLP agent)
+
+**Generate secure keys:**
+```bash
+# Generate JWT secret
+openssl rand -base64 32
+
+# Generate API key
+openssl rand -hex 32
+```
+
+### Step 2: Database Migration
+
+Ensure your production database schema is up to date:
+
+```bash
+npm run db:push
+```
+
+### Step 3: Update Python .env
+
+The Python agents also need the same `DATABASE_URL`:
+
+1. Open `python-agents/.env`
+2. Ensure `DATABASE_URL` matches the one in Replit Secrets
+3. Ensure `PYTHON_API_KEY` matches the one in Replit Secrets
+
+### Step 4: Deploy
+
+1. Click the "Deploy" button in Replit
+2. The application will run both Node.js and Python services
+3. Configure custom domain if desired
+
+### Post-Deployment Checklist
+
+- [ ] All environment variables set in Replit Secrets
+- [ ] Database schema pushed successfully
+- [ ] Python agents `.env` file updated
+- [ ] Both Node.js (port 5000) and Python (port 8000) services running
+- [ ] Test login/signup functionality
+- [ ] Test agent execution
+- [ ] Verify multi-tenant isolation
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
 
@@ -330,8 +399,9 @@ Proprietary - Abetworks
 ## 🆘 Support
 
 For issues, questions, or feature requests:
-- Check existing documentation in `replit.md` and `design_guidelines.md`
+- Check existing documentation in `docs/` directory
 - Review API endpoints in `docs/API.md`
+- See agent development guide in `docs/AGENT_DEVELOPMENT.md`
 - See complete platform guide in `COMPLETE_AI_PLATFORM_GUIDE.md`
 - Contact the development team
 
