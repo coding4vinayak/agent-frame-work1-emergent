@@ -47,11 +47,13 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   getAllUsers(orgId: string): Promise<User[]>;
   getAllUsersGlobal(): Promise<User[]>;
-  deleteUser(id: string, orgId: string): Promise<void>;
+  updateUser(id: string, updates: Partial<InsertUser>): Promise<void>;
+  deleteUser(id: string, orgId?: string): Promise<void>;
   updateUserLastLogin(id: string): Promise<void>;
 
   // Organizations
   getOrganization(id: string): Promise<Organization | undefined>;
+  getAllOrganizations(): Promise<Organization[]>;
   createOrganization(org: InsertOrganization): Promise<Organization>;
 
   // Agent Catalog
@@ -101,10 +103,11 @@ export interface IStorage {
 
   // Resource Usage
   getResourceUsage(orgId: string): Promise<ResourceUsage[]>;
+  getAllResourceUsage(): Promise<ResourceUsage[]>;
   createResourceUsage(usage: InsertResourceUsage): Promise<ResourceUsage>;
 
   // Modules
-  getAllModules(orgId: string): Promise<Module[]>;
+  getAllModules(orgId?: string): Promise<Module[]>;
   getModule(id: string, orgId: string): Promise<Module | undefined>;
   createModule(module: InsertModule): Promise<Module>;
   updateModuleStatus(
@@ -116,7 +119,7 @@ export interface IStorage {
   updateModuleConfig(id: string, orgId: string, userConfig: string): Promise<void>;
 
   // Module Executions
-  getAllModuleExecutions(orgId: string, limit?: number): Promise<ModuleExecution[]>;
+  getAllModuleExecutions(orgId?: string, limit?: number): Promise<ModuleExecution[]>;
   getModuleExecution(id: string, orgId: string): Promise<ModuleExecution | undefined>;
   getModuleExecutionsByModule(moduleId: string, orgId: string, limit?: number): Promise<ModuleExecution[]>;
   createModuleExecution(execution: InsertModuleExecution): Promise<ModuleExecution>;
@@ -154,8 +157,16 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users);
   }
 
-  async deleteUser(id: string, orgId: string): Promise<void> {
-    await db.delete(users).where(and(eq(users.id, id), eq(users.orgId, orgId)));
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<void> {
+    await db.update(users).set(updates).where(eq(users.id, id));
+  }
+
+  async deleteUser(id: string, orgId?: string): Promise<void> {
+    if (orgId) {
+      await db.delete(users).where(and(eq(users.id, id), eq(users.orgId, orgId)));
+    } else {
+      await db.delete(users).where(eq(users.id, id));
+    }
   }
 
   async updateUserLastLogin(id: string): Promise<void> {
@@ -172,6 +183,10 @@ export class DatabaseStorage implements IStorage {
       .from(organizations)
       .where(eq(organizations.id, id));
     return org || undefined;
+  }
+
+  async getAllOrganizations(): Promise<Organization[]> {
+    return await db.select().from(organizations);
   }
 
   async createOrganization(org: InsertOrganization): Promise<Organization> {
@@ -366,6 +381,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(resourceUsage.timestamp));
   }
 
+  async getAllResourceUsage(): Promise<ResourceUsage[]> {
+    return await db
+      .select()
+      .from(resourceUsage)
+      .orderBy(desc(resourceUsage.timestamp));
+  }
+
   async createResourceUsage(usage: InsertResourceUsage): Promise<ResourceUsage> {
     const [newUsage] = await db
       .insert(resourceUsage)
@@ -375,12 +397,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Modules
-  async getAllModules(orgId: string): Promise<Module[]> {
-    return await db
-      .select()
-      .from(modules)
-      .where(eq(modules.orgId, orgId))
-      .orderBy(desc(modules.createdAt));
+  async getAllModules(orgId?: string): Promise<Module[]> {
+    if (orgId) {
+      return await db
+        .select()
+        .from(modules)
+        .where(eq(modules.orgId, orgId))
+        .orderBy(desc(modules.createdAt));
+    } else {
+      return await db
+        .select()
+        .from(modules)
+        .orderBy(desc(modules.createdAt));
+    }
   }
 
   async getModule(id: string, orgId: string): Promise<Module | undefined> {
@@ -424,13 +453,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Module Executions
-  async getAllModuleExecutions(orgId: string, limit = 100): Promise<ModuleExecution[]> {
-    return await db
-      .select()
-      .from(moduleExecutions)
-      .where(eq(moduleExecutions.orgId, orgId))
-      .orderBy(desc(moduleExecutions.startedAt))
-      .limit(limit);
+  async getAllModuleExecutions(orgId?: string, limit = 100): Promise<ModuleExecution[]> {
+    if (orgId) {
+      return await db
+        .select()
+        .from(moduleExecutions)
+        .where(eq(moduleExecutions.orgId, orgId))
+        .orderBy(desc(moduleExecutions.startedAt))
+        .limit(limit);
+    } else {
+      return await db
+        .select()
+        .from(moduleExecutions)
+        .orderBy(desc(moduleExecutions.startedAt))
+        .limit(limit);
+    }
   }
 
   async getModuleExecution(id: string, orgId: string): Promise<ModuleExecution | undefined> {

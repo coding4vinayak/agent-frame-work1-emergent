@@ -22,6 +22,7 @@ import Agents from "@/pages/agents";
 import AgentShop from "@/pages/agent-shop";
 import Modules from "./pages/modules";
 import ExecutionHistory from "./pages/execution-history";
+import SuperAdmin from "@/pages/super-admin";
 import NotFound from "@/pages/not-found";
 
 function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -117,6 +118,11 @@ function Router() {
       <Route path="/execution-history">
         <DashboardLayout>
           <ExecutionHistory />
+        </DashboardLayout>
+      </Route>
+      <Route path="/super-admin">
+        <DashboardLayout>
+          <SuperAdmin />
         </DashboardLayout>
       </Route>
 

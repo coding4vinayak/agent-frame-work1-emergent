@@ -374,6 +374,33 @@ export const passwordResetSchema = z.object({
   email: z.string().email("Invalid email address"),
 });
 
+// Super Admin schemas
+export const createUserAdminSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  role: z.enum(["member", "admin", "super_admin"]).optional(),
+  orgId: z.string().min(1, "Organization ID is required"),
+});
+
+export const updateUserAdminSchema = z.object({
+  name: z.string().min(2).optional(),
+  email: z.string().email().optional(),
+  role: z.enum(["member", "admin", "super_admin"]).optional(),
+  orgId: z.string().min(1).optional(),
+});
+
+export const updateAgentCatalogSchema = z.object({
+  name: z.string().optional(),
+  type: z.string().optional(),
+  description: z.string().optional(),
+  longDescription: z.string().optional(),
+  icon: z.string().optional(),
+  category: z.string().optional(),
+  price: z.number().optional(),
+  isActive: z.boolean().optional(),
+});
+
 // TypeScript types
 export type Organization = typeof organizations.$inferSelect;
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;

@@ -9,6 +9,7 @@ import {
   Package,
   LogOut,
   Store,
+  Shield,
 } from "lucide-react";
 import {
   Sidebar,
@@ -64,6 +65,11 @@ const menuItems = [
     title: "Execution History",
     url: "/execution-history",
     icon: CheckCircle,
+  },
+  {
+    title: "Super Admin",
+    url: "/super-admin",
+    icon: Shield,
   },
   {
     title: "Settings",
