@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Settings, History, TrendingUp } from "lucide-react";
-import AgentStatus from "@/components/agent-status";
+import { AgentStatus } from "@/components/agent-status";
 
 export default function Modules() {
   const { data: activeAgents, isLoading } = useQuery({
