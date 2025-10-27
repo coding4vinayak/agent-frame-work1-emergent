@@ -3,6 +3,9 @@ import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { storage } from "./storage";
+import { rateLimit } from "./middleware/rate-limit";
+import { cacheGet, cacheSet, cacheDelete } from "./cache";
+import { queueAgentExecution } from "./queue";
 import {
   generateToken,
   requireAuth,
@@ -36,8 +39,11 @@ import { db } from "./db";
 export async function registerRoutes(app: Express): Promise<Server> {
   // ===== Authentication Routes =====
 
+  // Apply rate limiting to auth routes
+  const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, maxRequests: 5 });
+
   // Regular Login
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", authRateLimit, async (req, res) => {
     try {
       const { email, password } = loginSchema.parse(req.body);
 
@@ -647,50 +653,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         moduleId: id,
         taskId: taskId || null,
         input: JSON.stringify(inputData),
-        status: "pending",
+        status: "queued",
         orgId: req.user!.orgId,
       });
 
-      // Call Python agent service
-      try {
-        const client = new PythonAgentClient(apiKeys[0].key);
+      // Queue the execution
+      await queueAgentExecution({
+        moduleId: module.pythonModule,
+        orgId: req.user!.orgId,
+        taskId,
+        inputData,
+        executionId: execution.id,
+      });
 
-        await storage.updateModuleExecution(
-          execution.id,
-          req.user!.orgId,
-          "running"
-        );
-
-        const result = await client.executeModule(
-          module.pythonModule,
-          req.user!.orgId,
-          inputData,
-          taskId
-        );
-
-        await storage.updateModuleExecution(
-          execution.id,
-          req.user!.orgId,
-          result.status === "completed" ? "completed" : "failed",
-          result.output ? JSON.stringify(result.output) : undefined,
-          result.error
-        );
-
-        res.json({
-          executionId: execution.id,
-          ...result,
-        });
-      } catch (error: any) {
-        await storage.updateModuleExecution(
-          execution.id,
-          req.user!.orgId,
-          "failed",
-          undefined,
-          error.message
-        );
-
-        throw error;
-      }
+      res.json({
+        executionId: execution.id,
+        status: "queued",
+        message: "Execution queued successfully"
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to execute module" });
     }
