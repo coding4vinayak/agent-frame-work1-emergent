@@ -66,7 +66,22 @@ export default function Settings() {
 
   const createKeyMutation = useMutation({
     mutationFn: async (data: CreateApiKeyForm) => {
-      return apiRequest("POST", "/api/api-keys", data);
+      const response = await fetch("/api/api-keys", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to create API key");
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
@@ -88,7 +103,20 @@ export default function Settings() {
 
   const deleteKeyMutation = useMutation({
     mutationFn: async (keyId: string) => {
-      return apiRequest("DELETE", `/api/api-keys/${keyId}`, null);
+      const response = await fetch(`/api/api-keys/${keyId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`,
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to delete API key");
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
@@ -127,6 +155,17 @@ export default function Settings() {
     email: "📧",
     whatsapp: "💬",
   };
+
+  if (!organization && !apiKeys && !integrations) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="text-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mx-auto" />
+          <p className="text-muted-foreground mt-4">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
