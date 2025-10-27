@@ -6,6 +6,7 @@
 This guide explains how to add new AI agents to the Abetworks platform using code. It covers the complete process from creating the Python agent to registering it in the system.
 
 ---
+https://marketplace.kore.ai/
 
 ## Quick Start: Adding a New Agent in 5 Steps
 
