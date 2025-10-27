@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Cpu, Play, Settings, Eye, Loader2 } from "lucide-react";
+import { AgentStatus } from "@/components/agent-status";
 import type { Agent } from "@shared/schema";
 
 export default function Agents() {
