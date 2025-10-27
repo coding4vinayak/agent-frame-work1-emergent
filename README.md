@@ -1,3 +1,4 @@
+
 # Abetworks - Modular AI Automation Platform
 
 A production-ready, modular AI automation platform built for intelligent workflow orchestration. The system provides comprehensive user management, task tracking, reporting, and a powerful Python-based agent system for AI/ML workloads.
@@ -11,12 +12,14 @@ A production-ready, modular AI automation platform built for intelligent workflo
 - ✅ **Dashboard Analytics** - Real-time metrics and reporting with interactive charts
 - ✅ **API Key Management** - Generate and manage API keys for integrations
 - ✅ **Modular Agent System** - Python-based AI agents with dynamic module loading
+- ✅ **Agent Marketplace** - Browse, activate, and manage AI automation modules
 - ✅ **Workflow Orchestration** - Chain multiple agents for complex automation
 - ✅ **Secure Authentication** - JWT-based authentication with database verification
 
 ### AI Automation Features
 - Python microservices for AI/ML processing
 - Modular agent architecture (NLP, data processing, ML models)
+- Agent marketplace with registration and activation
 - Real-time execution tracking
 - Agent execution history and analytics
 - Custom module configuration
@@ -43,7 +46,7 @@ A production-ready, modular AI automation platform built for intelligent workflo
 
 ### Backend API (Node.js)
 - **Node.js** + Express + TypeScript
-- **PostgreSQL** (Neon serverless)
+- **PostgreSQL** (Neon serverless with pooled connections)
 - **Drizzle ORM**
 - **JWT** authentication
 - **bcrypt** for password hashing
@@ -78,7 +81,7 @@ cd ..
 **Create a `.env` file in the root directory:**
 
 ```env
-DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+DATABASE_URL=postgresql://neondb_owner:password@ep-name-pooler.region.aws.neon.tech/neondb?sslmode=require
 JWT_SECRET=your_secure_jwt_secret_minimum_32_characters
 NODE_ENV=development
 PYTHON_AGENT_URL=http://0.0.0.0:8000
@@ -88,13 +91,16 @@ PYTHON_API_KEY=your_secure_api_key
 **Create a `.env` file in the `python-agents` directory:**
 
 ```env
-DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+DATABASE_URL=postgresql://neondb_owner:password@ep-name-pooler.region.aws.neon.tech/neondb?sslmode=require
 NODE_API_URL=http://0.0.0.0:5000
 PYTHON_API_KEY=your_secure_api_key
 OPENAI_API_KEY=sk-your-openai-api-key
 ```
 
-**Important:** Use the same `DATABASE_URL` and `PYTHON_API_KEY` in both files.
+**Important:** 
+- Use the **pooled connection string** from Neon (hostname ends with `-pooler.region.aws.neon.tech`)
+- The connection must include `?sslmode=require` at the end
+- Use the same `DATABASE_URL` and `PYTHON_API_KEY` in both files
 
 ### 3. Database Setup
 
@@ -135,14 +141,15 @@ abetworks/
 │   │   │   ├── agent-displays/  # Agent-specific visualizations
 │   │   │   ├── ui/              # Shadcn UI components
 │   │   │   ├── agent-config-modal.tsx
+│   │   │   ├── agent-registration-form.tsx
 │   │   │   ├── agent-status.tsx
 │   │   │   ├── agent-test-interface.tsx
 │   │   │   └── app-sidebar.tsx
 │   │   ├── pages/         # Application pages
 │   │   │   ├── dashboard.tsx
+│   │   │   ├── agent-shop.tsx      # Agent marketplace
 │   │   │   ├── modules.tsx         # Active modules dashboard
 │   │   │   ├── execution-history.tsx
-│   │   │   ├── agent-shop.tsx
 │   │   │   ├── agents.tsx
 │   │   │   ├── tasks.tsx
 │   │   │   ├── users.tsx
@@ -173,6 +180,7 @@ abetworks/
 │   ├── API.md
 │   ├── SETUP.md
 │   ├── AGENT_DEVELOPMENT.md
+│   ├── AGENT_REGISTRATION_FLOW.md
 │   └── REMAINING_TASKS.md
 └── design_guidelines.md  # UI/UX design system
 ```
@@ -204,12 +212,17 @@ Password reset workflow is implemented with email placeholder functionality.
 - **Tasks**: Automation workflow tasks
 - **Modules**: Python agent module registry
 - **ModuleExecutions**: Agent execution history and results
-- **Agents**: Agent configurations (legacy)
+- **AgentCatalog**: Available agents in marketplace
+- **AgentSubscriptions**: Organization's activated agents
 - **ApiKeys**: API authentication keys
 - **Logs**: Activity and execution logs
 
 ### AI Agent Tables
-- **Modules**: Tracks available Python agent modules
+- **AgentCatalog**: Tracks available agents in the marketplace
+  - id, name, type, description, longDescription, icon, category, backendEndpoint, configSchema, price, isActive
+- **AgentSubscriptions**: Organization's activated agents
+  - id, orgId, agentId, status, config, activatedAt
+- **Modules**: Python module configurations
   - id, name, category, pythonModule, endpoint, config, status, orgId
 - **ModuleExecutions**: Execution history and analytics
   - id, moduleId, taskId, input, output, status, error, duration, startedAt, completedAt
@@ -229,6 +242,14 @@ Password reset workflow is implemented with email placeholder functionality.
 ### Tasks
 - `GET /api/tasks` - Get all tasks
 - `POST /api/tasks` - Create new task
+
+### Agent Marketplace
+- `GET /api/agents/marketplace` - List all available agents
+- `POST /api/agents/register` - Register a new agent (Admin only)
+- `POST /api/agents/:id/activate` - Activate agent for organization
+- `GET /api/agents/active` - Get organization's active agents
+- `PATCH /api/agents/catalog/:id` - Update agent metadata
+- `DELETE /api/agents/catalog/:id` - Delete agent (Super Admin only)
 
 ### Python Agent Modules
 - `POST /api/modules/:id/execute` - Execute a Python agent module
@@ -263,12 +284,22 @@ class NLPAgent(BaseAgent):
 2. **Data Agent** (`data_processor`): Data transformation with Pandas
 3. **Custom Agents**: Extend `BaseAgent` to create your own
 
+### Agent Marketplace
+
+The platform includes an agent marketplace where:
+- Admins can register new agents via UI or API
+- Users can browse available agents by category
+- Agents can be activated per organization
+- Configuration schemas enable customization
+- Execution history is tracked per agent
+
 ### Creating Custom Agents
 
 1. Create a new file in `python-agents/agents/`
 2. Inherit from `BaseAgent`
 3. Implement the `execute()` method
 4. Register in `MODULE_REGISTRY` in `main.py`
+5. Register metadata via the API or UI
 
 ### Execution Flow
 
@@ -300,6 +331,7 @@ See [design_guidelines.md](./design_guidelines.md) for complete design specifica
 5. **Role-based Access**: Middleware enforces role requirements on protected routes.
 6. **Python Agent Security**: API key authentication for Node.js ↔ Python communication.
 7. **Database Isolation**: All Python agent queries filter by `org_id`.
+8. **Pooled Connections**: Use Neon's pooled connections for better performance and security.
 
 ## 🧪 Development
 
@@ -333,11 +365,16 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 In Replit Secrets, add the following environment variables:
 
 **Required Secrets:**
-1. `DATABASE_URL` - Your Neon PostgreSQL connection string
+1. `DATABASE_URL` - Your Neon PostgreSQL **pooled** connection string (must include `?sslmode=require`)
 2. `JWT_SECRET` - A secure random string (minimum 32 characters)
 3. `PYTHON_AGENT_URL` - `http://0.0.0.0:8000`
 4. `PYTHON_API_KEY` - Secure API key for Python service auth
 5. `OPENAI_API_KEY` - Your OpenAI API key (optional, for NLP agent)
+
+**Important for DATABASE_URL:**
+- Get the **pooled connection string** from Neon
+- It should look like: `postgresql://neondb_owner:password@ep-name-pooler.region.aws.neon.tech/neondb?sslmode=require`
+- The pooler hostname ends with `-pooler.{region}.aws.neon.tech`
 
 **Generate secure keys:**
 ```bash
@@ -361,7 +398,7 @@ npm run db:push
 The Python agents also need the same `DATABASE_URL`:
 
 1. Open `python-agents/.env`
-2. Ensure `DATABASE_URL` matches the one in Replit Secrets
+2. Ensure `DATABASE_URL` matches the one in Replit Secrets (use pooled connection)
 3. Ensure `PYTHON_API_KEY` matches the one in Replit Secrets
 
 ### Step 4: Deploy
@@ -374,11 +411,12 @@ The Python agents also need the same `DATABASE_URL`:
 
 - [ ] All environment variables set in Replit Secrets
 - [ ] Database schema pushed successfully
-- [ ] Python agents `.env` file updated
+- [ ] Python agents `.env` file updated with pooled connection
 - [ ] Both Node.js (port 5000) and Python (port 8000) services running
 - [ ] Test login/signup functionality
 - [ ] Test agent execution
 - [ ] Verify multi-tenant isolation
+- [ ] Test agent marketplace and activation
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
 
@@ -401,6 +439,7 @@ For issues, questions, or feature requests:
 - Check existing documentation in `docs/` directory
 - Review API endpoints in `docs/API.md`
 - See agent development guide in `docs/AGENT_DEVELOPMENT.md`
+- See agent registration flow in `docs/AGENT_REGISTRATION_FLOW.md`
 - See complete platform guide in `COMPLETE_AI_PLATFORM_GUIDE.md`
 - Contact the development team
 

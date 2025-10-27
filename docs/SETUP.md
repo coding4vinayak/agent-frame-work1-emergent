@@ -44,13 +44,13 @@ This will install all required packages for both the Node.js API and Python agen
 
 1. Go to [Neon](https://neon.tech) and create a free account
 2. Create a new project
-3. Copy the connection string (should look like `postgresql://user:password@host/database?sslmode=require`)
+3. Copy the **pooled connection string** (this is important - use the pooled connection, not the direct connection)
 
 #### Configure Environment Variables
 
 **Root `.env` file (Node.js):**
 ```env
-DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+DATABASE_URL=postgresql://neondb_owner:your-password@your-host.aws.neon.tech/neondb?sslmode=require
 JWT_SECRET=your_very_secure_random_string_minimum_32_characters
 NODE_ENV=development
 PYTHON_AGENT_URL=http://0.0.0.0:8000
@@ -59,13 +59,15 @@ PYTHON_API_KEY=your_secure_api_key_here
 
 **Python `.env` file (`python-agents/.env`):**
 ```env
-DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+DATABASE_URL=postgresql://neondb_owner:your-password@your-host.aws.neon.tech/neondb?sslmode=require
 NODE_API_URL=http://0.0.0.0:5000
 PYTHON_API_KEY=your_secure_api_key_here
 OPENAI_API_KEY=sk-your-openai-api-key
 ```
 
-**Important:** 
+**Important Notes:**
+- Use the **pooled connection string** from Neon (ends with `-pooler.{region}.aws.neon.tech`)
+- The connection string must include `?sslmode=require` at the end
 - Never commit `.env` files to version control!
 - Use the same `PYTHON_API_KEY` in both files
 - Use the same `DATABASE_URL` in both files
@@ -80,6 +82,7 @@ npm run db:push
 This will create all necessary tables including:
 - Users, Organizations, Tasks (core tables)
 - Modules, ModuleExecutions (AI agent tables)
+- AgentCatalog, AgentSubscriptions (marketplace tables)
 - API Keys, Logs, Integrations
 
 ### Step 4: Start Development Servers
@@ -109,7 +112,7 @@ The application will start:
 In Replit, use the Secrets tool to add the following:
 
 **Required Secrets:**
-1. `DATABASE_URL` - Your Neon PostgreSQL connection string
+1. `DATABASE_URL` - Your Neon PostgreSQL **pooled** connection string (must include `?sslmode=require`)
 2. `JWT_SECRET` - A secure random string for JWT signing (min 32 chars)
 3. `PYTHON_AGENT_URL` - `http://0.0.0.0:8000`
 4. `PYTHON_API_KEY` - Secure API key for Python agent auth
@@ -120,12 +123,17 @@ In Replit, use the Secrets tool to add the following:
 2. Add each secret with the Key and Value
 3. Click "Add Secret"
 
+**Important for DATABASE_URL:**
+- Get the **pooled connection string** from Neon (not the direct connection)
+- It should look like: `postgresql://neondb_owner:password@ep-name-pooler.region.aws.neon.tech/neondb?sslmode=require`
+- The pooler hostname ends with `-pooler.{region}.aws.neon.tech`
+
 ### Step 2: Update Python .env File
 
 The Python agents also need access to the database. Update `python-agents/.env`:
 
 ```env
-DATABASE_URL=postgresql://your-connection-string-here
+DATABASE_URL=postgresql://neondb_owner:your-password@your-host-pooler.region.aws.neon.tech/neondb?sslmode=require
 NODE_API_URL=http://0.0.0.0:5000
 PYTHON_API_KEY=same-as-in-secrets
 OPENAI_API_KEY=sk-your-openai-key
@@ -165,7 +173,7 @@ The `.replit` file is already configured to run both services on deployment.
 ### Step 1: Configure Secrets
 
 Ensure all environment variables are set in Replit Secrets:
-- ✅ `DATABASE_URL`
+- ✅ `DATABASE_URL` (pooled connection with `?sslmode=require`)
 - ✅ `JWT_SECRET`
 - ✅ `PYTHON_AGENT_URL`
 - ✅ `PYTHON_API_KEY`
@@ -271,7 +279,7 @@ class MyCustomAgent(BaseAgent):
     async def execute(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         # Your implementation
         return {
-            "status": "success",
+            "success": True,
             "output": { "result": "Your result here" }
         }
 ```
@@ -295,10 +303,11 @@ MODULE_REGISTRY = {
 Use the built-in test interface in the Modules page:
 
 1. Navigate to Modules (`/modules`)
-2. Click "Test" button on any agent
-3. Enter JSON input data
-4. Click "Run Test"
-5. View results in real-time
+2. Find your agent
+3. Click **Test** button
+4. Enter sample input
+5. Click "Run Test"
+6. View results in real-time
 
 ### Agent Health Monitoring
 
@@ -401,11 +410,14 @@ Before going to production:
 
 **Solutions:**
 - Verify `DATABASE_URL` is set in Replit Secrets
-- Check the database URL format includes `?sslmode=require`
+- Ensure you're using the **pooled connection string** from Neon
+- Check the database URL includes `?sslmode=require`
 - Ensure Neon database is active (not paused)
 - Verify network connectivity
 - Check both Node.js and Python have same `DATABASE_URL`
 - Update `python-agents/.env` with the correct URL
+
+**Common mistake:** Using the direct connection instead of pooled connection. The pooled connection hostname ends with `-pooler.{region}.aws.neon.tech`
 
 ### Python Agent Connection Issues
 
