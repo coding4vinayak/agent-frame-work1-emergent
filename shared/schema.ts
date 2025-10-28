@@ -441,3 +441,181 @@ export type InsertModuleExecution = z.infer<typeof insertModuleExecutionSchema>;
 export type LoginData = z.infer<typeof loginSchema>;
 export type SignupData = z.infer<typeof signupSchema>;
 export type PasswordResetData = z.infer<typeof passwordResetSchema>;
+
+// ===== NEW TABLES FOR MARKETPLACE & LICENSE MANAGEMENT =====
+
+// User Agent Licenses (Track which users have access to which agents)
+export const userAgentLicenses = pgTable("user_agent_licenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  agentId: varchar("agent_id").notNull().references(() => agentCatalog.id, { onDelete: "cascade" }),
+  orgId: varchar("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  apiCallLimit: integer("api_call_limit").notNull().default(-1), // -1 = unlimited
+  apiCallsUsed: integer("api_calls_used").notNull().default(0),
+  status: agentStatusEnum("status").notNull().default("active"),
+  grantedBy: varchar("granted_by").references(() => users.id, { onDelete: "set null" }), // Super admin who granted
+  grantedAt: timestamp("granted_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"), // null = never expires
+});
+
+// API Usage Tracking (Track all API calls per user per agent)
+export const apiUsageTracking = pgTable("api_usage_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  agentId: varchar("agent_id").notNull().references(() => agentCatalog.id, { onDelete: "cascade" }),
+  orgId: varchar("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  licenseId: varchar("license_id").references(() => userAgentLicenses.id, { onDelete: "set null" }),
+  endpoint: text("endpoint"),
+  statusCode: integer("status_code"),
+  duration: integer("duration"), // milliseconds
+  error: text("error"),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+});
+
+// Agent Access Requests (Users request access to agents)
+export const agentAccessRequests = pgTable("agent_access_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  agentId: varchar("agent_id").notNull().references(() => agentCatalog.id, { onDelete: "cascade" }),
+  orgId: varchar("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  requestReason: text("request_reason"),
+  status: text("status").notNull().default("pending"), // pending, approved, rejected
+  requestedAt: timestamp("requested_at").notNull().defaultNow(),
+  reviewedBy: varchar("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNote: text("review_note"),
+});
+
+// Error Logs (Comprehensive error tracking)
+export const errorLogs = pgTable("error_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  orgId: varchar("org_id").references(() => organizations.id, { onDelete: "cascade" }),
+  agentId: varchar("agent_id").references(() => agentCatalog.id, { onDelete: "set null" }),
+  errorType: text("error_type").notNull(), // api_error, agent_error, system_error, auth_error
+  errorCode: text("error_code"),
+  errorMessage: text("error_message").notNull(),
+  stackTrace: text("stack_trace"),
+  endpoint: text("endpoint"),
+  method: text("method"),
+  requestBody: text("request_body"),
+  severity: text("severity").notNull().default("medium"), // low, medium, high, critical
+  resolved: boolean("resolved").notNull().default(false),
+  resolvedBy: varchar("resolved_by").references(() => users.id, { onDelete: "set null" }),
+  resolvedAt: timestamp("resolved_at"),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+});
+
+// Relations for new tables
+export const userAgentLicensesRelations = relations(userAgentLicenses, ({ one }) => ({
+  user: one(users, {
+    fields: [userAgentLicenses.userId],
+    references: [users.id],
+  }),
+  agent: one(agentCatalog, {
+    fields: [userAgentLicenses.agentId],
+    references: [agentCatalog.id],
+  }),
+  organization: one(organizations, {
+    fields: [userAgentLicenses.orgId],
+    references: [organizations.id],
+  }),
+  grantedByUser: one(users, {
+    fields: [userAgentLicenses.grantedBy],
+    references: [users.id],
+  }),
+}));
+
+export const apiUsageTrackingRelations = relations(apiUsageTracking, ({ one }) => ({
+  user: one(users, {
+    fields: [apiUsageTracking.userId],
+    references: [users.id],
+  }),
+  agent: one(agentCatalog, {
+    fields: [apiUsageTracking.agentId],
+    references: [agentCatalog.id],
+  }),
+  organization: one(organizations, {
+    fields: [apiUsageTracking.orgId],
+    references: [organizations.id],
+  }),
+  license: one(userAgentLicenses, {
+    fields: [apiUsageTracking.licenseId],
+    references: [userAgentLicenses.id],
+  }),
+}));
+
+export const agentAccessRequestsRelations = relations(agentAccessRequests, ({ one }) => ({
+  user: one(users, {
+    fields: [agentAccessRequests.userId],
+    references: [users.id],
+  }),
+  agent: one(agentCatalog, {
+    fields: [agentAccessRequests.agentId],
+    references: [agentCatalog.id],
+  }),
+  organization: one(organizations, {
+    fields: [agentAccessRequests.orgId],
+    references: [organizations.id],
+  }),
+  reviewedByUser: one(users, {
+    fields: [agentAccessRequests.reviewedBy],
+    references: [users.id],
+  }),
+}));
+
+export const errorLogsRelations = relations(errorLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [errorLogs.userId],
+    references: [users.id],
+  }),
+  organization: one(organizations, {
+    fields: [errorLogs.orgId],
+    references: [organizations.id],
+  }),
+  agent: one(agentCatalog, {
+    fields: [errorLogs.agentId],
+    references: [agentCatalog.id],
+  }),
+  resolvedByUser: one(users, {
+    fields: [errorLogs.resolvedBy],
+    references: [users.id],
+  }),
+}));
+
+// Zod schemas for new tables
+export const insertUserAgentLicenseSchema = createInsertSchema(userAgentLicenses).omit({
+  id: true,
+  grantedAt: true,
+  apiCallsUsed: true,
+});
+
+export const insertApiUsageTrackingSchema = createInsertSchema(apiUsageTracking).omit({
+  id: true,
+  timestamp: true,
+});
+
+export const insertAgentAccessRequestSchema = createInsertSchema(agentAccessRequests).omit({
+  id: true,
+  requestedAt: true,
+  reviewedAt: true,
+});
+
+export const insertErrorLogSchema = createInsertSchema(errorLogs).omit({
+  id: true,
+  timestamp: true,
+  resolvedAt: true,
+});
+
+// TypeScript types for new tables
+export type UserAgentLicense = typeof userAgentLicenses.$inferSelect;
+export type InsertUserAgentLicense = z.infer<typeof insertUserAgentLicenseSchema>;
+
+export type ApiUsageTracking = typeof apiUsageTracking.$inferSelect;
+export type InsertApiUsageTracking = z.infer<typeof insertApiUsageTrackingSchema>;
+
+export type AgentAccessRequest = typeof agentAccessRequests.$inferSelect;
+export type InsertAgentAccessRequest = z.infer<typeof insertAgentAccessRequestSchema>;
+
+export type ErrorLog = typeof errorLogs.$inferSelect;
+export type InsertErrorLog = z.infer<typeof insertErrorLogSchema>;
