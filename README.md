@@ -5,6 +5,14 @@ A production-ready AI agent marketplace where customers can browse, request acce
 
 ## 🚀 Features
 
+### Marketplace & Licensing
+- ✅ **AI Agent Marketplace** - Browse and discover AI automation agents
+- ✅ **License Management** - Super admin controls who gets what agents
+- ✅ **Access Requests** - Users request access, admin approves
+- ✅ **API Rate Limiting** - Custom limits per user per agent
+- ✅ **Usage Tracking** - Comprehensive API call monitoring
+- ✅ **Error Logging** - Production-grade error monitoring and resolution
+
 ### Core Functionality
 - ✅ **Multi-tenant Architecture** - Complete data isolation between organizations
 - ✅ **User Management** - Role-based access control (Member, Admin, Super Admin)
