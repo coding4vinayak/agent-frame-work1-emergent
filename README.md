@@ -1,7 +1,7 @@
 
-# Abetworks - Modular AI Automation Platform
+# Abetworks - AI Agent Marketplace & Automation Platform
 
-A production-ready, modular AI automation platform built for intelligent workflow orchestration. The system provides comprehensive user management, task tracking, reporting, and a powerful Python-based agent system for AI/ML workloads.
+A production-ready AI agent marketplace where customers can browse, request access, and execute powerful AI automation agents. Super admins control user licensing, API limits, and system monitoring. Built for scale with industry-grade architecture supporting thousands of users.
 
 ## 🚀 Features
 
